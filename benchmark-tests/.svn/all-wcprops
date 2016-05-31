@@ -1,0 +1,47 @@
+K 25
+svn:wc:ra_dav:version-url
+V 56
+/svnroot/EMUL/!svn/ver/639/CODE/NVM_EMUL/benchmark-tests
+END
+nvmemul-orig.ini
+K 25
+svn:wc:ra_dav:version-url
+V 73
+/svnroot/EMUL/!svn/ver/639/CODE/NVM_EMUL/benchmark-tests/nvmemul-orig.ini
+END
+memlat-orig-lat-test.sh
+K 25
+svn:wc:ra_dav:version-url
+V 80
+/svnroot/EMUL/!svn/ver/646/CODE/NVM_EMUL/benchmark-tests/memlat-orig-lat-test.sh
+END
+nvmemul.ini
+K 25
+svn:wc:ra_dav:version-url
+V 68
+/svnroot/EMUL/!svn/ver/639/CODE/NVM_EMUL/benchmark-tests/nvmemul.ini
+END
+nvmemul-bandwidth.ini
+K 25
+svn:wc:ra_dav:version-url
+V 78
+/svnroot/EMUL/!svn/ver/639/CODE/NVM_EMUL/benchmark-tests/nvmemul-bandwidth.ini
+END
+nvmemul-debug.ini
+K 25
+svn:wc:ra_dav:version-url
+V 74
+/svnroot/EMUL/!svn/ver/639/CODE/NVM_EMUL/benchmark-tests/nvmemul-debug.ini
+END
+bandwidth-model-building.sh
+K 25
+svn:wc:ra_dav:version-url
+V 84
+/svnroot/EMUL/!svn/ver/646/CODE/NVM_EMUL/benchmark-tests/bandwidth-model-building.sh
+END
+memlat-bench-test-10M.sh
+K 25
+svn:wc:ra_dav:version-url
+V 81
+/svnroot/EMUL/!svn/ver/646/CODE/NVM_EMUL/benchmark-tests/memlat-bench-test-10M.sh
+END

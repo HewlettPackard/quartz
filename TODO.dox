@@ -1,0 +1,15 @@
+/**
+\file
+
+\todo Improve performance counter API by making it more generic. For example, autogenerate pmc event_id using perf.
+\todo Currently we may interrupt a thread to form a new epoch while it is blocked. This might cause accumulation of overhead cycles.
+\todo Currently our bandwidth model cannot independently throttle read and write bandwidth as it relies on throttling DDR ACT transactions. We tried throttling DDR READ and DDR WRITE transactions but this didn't work.
+\todo Extend library to interpose on other synchronization events we care: semaphores, barriers, context switches, openMP sync primitives, etc.
+\todo Currently our library does not support context switching. Extent the device driver to properly handle context switching: keep track of per-thread cpu counters, introduce proper delay at context switch points.
+\todo Support uncacheable and write-through memory.
+\todo Signal SIGUSR1 should be dedicated to the emulator. If the application makes use of this signal, the emulator will not work. Figure out a way to fix this limitation.
+\todo Interpose pthread_cancel() e pthread_exit() to make sure the thread is always deregistered internally to the emulator?
+\todo CPU counters overflow is not currently handled.
+\todo Multiple processes emulation must be reviewed: log file per process, statistics report by process, process id and thread id indications in the log messages.
+\todo See Limitations section in the README file.
+*/

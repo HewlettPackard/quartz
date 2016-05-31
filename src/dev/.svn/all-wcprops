@@ -1,0 +1,29 @@
+K 25
+svn:wc:ra_dav:version-url
+V 48
+/svnroot/EMUL/!svn/ver/267/CODE/NVM_EMUL/src/dev
+END
+pmc.c
+K 25
+svn:wc:ra_dav:version-url
+V 54
+/svnroot/EMUL/!svn/ver/646/CODE/NVM_EMUL/src/dev/pmc.c
+END
+ioctl_query.h
+K 25
+svn:wc:ra_dav:version-url
+V 62
+/svnroot/EMUL/!svn/ver/646/CODE/NVM_EMUL/src/dev/ioctl_query.h
+END
+CMakeLists.txt
+K 25
+svn:wc:ra_dav:version-url
+V 62
+/svnroot/EMUL/!svn/ver/34/CODE/NVM_EMUL/src/dev/CMakeLists.txt
+END
+Makefile
+K 25
+svn:wc:ra_dav:version-url
+V 56
+/svnroot/EMUL/!svn/ver/34/CODE/NVM_EMUL/src/dev/Makefile
+END

@@ -1,0 +1,21 @@
+/**
+
+@mainpage Quartz:  A Lightweight  Performance Emulator for  Persistent Memory Software.
+
+
+\section section-intro Introduction
+
+Quartz: A DRAM-based performance emulation platform that leverages features 
+available in commodity hardware to emulate different latency and bandwidth 
+characteristics of future byte-addressable NVM technologies.
+
+*/
+
+    
+
+
+
+
+
+
+

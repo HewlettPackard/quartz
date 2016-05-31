@@ -1,0 +1,23 @@
+K 25
+svn:wc:ra_dav:version-url
+V 57
+/svnroot/EMUL/!svn/ver/380/CODE/NVM_EMUL/bench/new_memlat
+END
+memlat.c
+K 25
+svn:wc:ra_dav:version-url
+V 66
+/svnroot/EMUL/!svn/ver/646/CODE/NVM_EMUL/bench/new_memlat/memlat.c
+END
+memlat.sh
+K 25
+svn:wc:ra_dav:version-url
+V 67
+/svnroot/EMUL/!svn/ver/646/CODE/NVM_EMUL/bench/new_memlat/memlat.sh
+END
+CMakeLists.txt
+K 25
+svn:wc:ra_dav:version-url
+V 72
+/svnroot/EMUL/!svn/ver/286/CODE/NVM_EMUL/bench/new_memlat/CMakeLists.txt
+END

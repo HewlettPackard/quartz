@@ -1,0 +1,29 @@
+K 25
+svn:wc:ra_dav:version-url
+V 48
+/svnroot/EMUL/!svn/ver/642/CODE/NVM_EMUL/scripts
+END
+install.sh
+K 25
+svn:wc:ra_dav:version-url
+V 59
+/svnroot/EMUL/!svn/ver/646/CODE/NVM_EMUL/scripts/install.sh
+END
+runenv.sh
+K 25
+svn:wc:ra_dav:version-url
+V 58
+/svnroot/EMUL/!svn/ver/646/CODE/NVM_EMUL/scripts/runenv.sh
+END
+setupdev.sh
+K 25
+svn:wc:ra_dav:version-url
+V 60
+/svnroot/EMUL/!svn/ver/646/CODE/NVM_EMUL/scripts/setupdev.sh
+END
+turboboost.sh
+K 25
+svn:wc:ra_dav:version-url
+V 62
+/svnroot/EMUL/!svn/ver/646/CODE/NVM_EMUL/scripts/turboboost.sh
+END
