@@ -8,21 +8,22 @@ byte-addressable NVM technologies.
 
 Quartz's design, implementation details, evaluation, and overhead  can be found 
 in the following research paper:
- - **H. Volos, G. Magalhaes, L. Cherkasova, J. Li: Quartz: A Lightweight 
-   Performance Emulator for Persistent Memory Software. In Proc. of the 
-   16th ACM/IFIP/USENIX International Middleware Conference, (Middleware'2015),
-   Vancouver, Canada, December 8-11, 2015.  and can be downloaded from:
-   http://www.labs.hpe.com/people/lucy_cherkasova/papers/middleware2015.pdf**
+
+  - **H. Volos, G. Magalhaes, L. Cherkasova, J. Li: Quartz: A Lightweight 
+    Performance Emulator for Persistent Memory Software. In Proc. of the 
+    16th ACM/IFIP/USENIX International Middleware Conference, (Middleware'2015),
+    Vancouver, Canada, December 8-11, 2015.  and can be downloaded from:
+    http://www.labs.hpe.com/people/lucy_cherkasova/papers/middleware2015.pdf**
 
 While the emulator is designed to cover three processor families:
-Sandy Bridge, Ivy Bridge, and Haswell -- we have had the best results
-on the Ivy Bridge platform. Haswell processor has a TurboBoost feature
+*Sandy Bridge, Ivy Bridge*, and *Haswell* -- we have had the best results
+on the *Ivy Bridge* platform. Haswell processor has a TurboBoost feature
 that cause higher variance and deviations when emulating higher range
 latencies (above 600 ns).
 
 Contributors
 ----------------------
-For a list of contributors see AUTHORS.
+For a list of contributors see [AUTHORS](https://github.com/HewlettPackard/quartz/blob/master/AUTHORS).
 
 Extended documentation
 ----------------------
@@ -56,8 +57,8 @@ dependencies.
 
 Supported environment
 ---------------------
-Currently the latency emulator can be used on Linux with Sandy Bridge, 
-Ivy Bridge and Haswell Intel processors. For bandwidth emulation support, Intel 
+Currently the latency emulator can be used on Linux with *Sandy Bridge, 
+Ivy Bridge*, and *Haswell* Intel processors. For bandwidth emulation support, Intel 
 Thermal Memory Controller device is required.
 No specific Linux distribution or kernel version is required.
 
@@ -65,18 +66,16 @@ No specific Linux distribution or kernel version is required.
 Source code tree overview
 -------------------------
 
-bench       Benchmarks
-doc         Documentation, including Doxygen generated documentation (doc/html)
-src/lib     Emulator main library code
-src/dev     Kernel-module for accessing performance counters and 
-            memory-controller PCI registers
-scripts     Helper scripts to run a program using the emulator and install 
-            dependencies
-test        Several tests and application code examples
-third_party Third-party dependencies 
+    bench       Benchmarks
+    doc         Documentation, including Doxygen generated documentation (doc/html)
+    src/lib     Emulator main library code
+    src/dev     Kernel-module for accessing performance counters and 
+                memory-controller PCI registers
+    scripts     Helper scripts to run a program using the emulator and install 
+                dependencies
+    test        Several tests and application code examples
 
 For more details, please see the extended documentation generated using Doxygen.
-
 
 Building
 --------
@@ -89,6 +88,7 @@ and execute the following steps:
     make clean all
 
 In order to disable statistics support, replace the third step above with:
+
     cmake .. -DSTATISTICS=OFF
 See more details about statistics on the respective section below.
 The emulator library, benchmark and test binaries resulted from the build 
@@ -127,7 +127,7 @@ Starting with Linux 4.0 rdpmc support is only allowed if an event is currently
 enabled in a process's context. To restore the old behavior, write the value 2
 to /sys/devices/cpu/rdpmc if kernel version is 4.0 or greater:
 
-echo 2 | sudo tee /sys/devices/cpu/rdpmc
+    echo 2 | sudo tee /sys/devices/cpu/rdpmc
 
 Run your application:
 
@@ -136,7 +136,9 @@ Run your application:
 The runenv.sh script runs an application in a new shell environment that
 properly sets LD_PRELOAD to the library available in the build folder. We do
 not modify the current shell environment to avoid getting other applications 
-interposed by the emulator unexpectedly. Alternatively, you may directly link 
+interposed by the emulator unexpectedly. 
+
+Alternatively, you may directly link 
 the library to your application but the nvmemul library must come first in the 
 linking order to ensure we properly interpose on necessary functions.
 Additionally, this script sets the NVMEMUL_INI environment variable to point
@@ -146,10 +148,13 @@ root folder.
 
 Configuration file
 ------------------
-Emulator runtime parameters can be defined in a configuration file. The 
-default path is ./nvmemul.ini but you may change the path through the 
+Emulator runtime parameters can be defined in a configuration file. 
+
+The default path is ./nvmemul.ini but you may change the path through the 
 environment variable $NVMEMUL_INI (see scripts/runenv.sh).
+
 The main available parameters are:
+
     - Latency:
       enable                  True means the latency emulation is on, false,
                               the latency emulation is disabled.
@@ -200,22 +205,27 @@ The main available parameters are:
 
 Latency emulation modes
 -----------------------
-The emulator may run application threads on a NVM only mode or DRAM+NVM mode.
+The emulator may run application threads on a *NVM only* mode or *DRAM+NVM* mode.
+
 It depends if the system has more than one CPU socket and if the topology 
 configuration enables multiple CPU socket.
-For NVM only mode, the emulator will use a CPU socket with no sibling node and
+
+For *NVM only* mode, the emulator will use a CPU socket with no sibling node and
 make use of the DRAM available in that socket to emulate NVM. Any DRAM memory 
 access on this socket will produce delays injection to emulate the target 
 latency.
-For DRAM+NVM mode, the emulator will differentiate DRAM from virtual NVM 
-latencies. It is supported only on IvyBridge Intel processor system with 2 CPU
+
+For *DRAM+NVM* mode, the emulator will differentiate DRAM from virtual NVM 
+latencies. It is supported only on IvyBridge, Haswell (and higher) Intel processor systems with 2 CPU
 sockets or more. A proper configuration as mentioned above and explicit calls 
 to NVM memory allocation in the application’s source code is required.
+
     - The emulator will bind application threads to node 0 CPU and DRAM. The 
       other CPU socket will not be used for application threads and the DRAM 
       from this second socket will be used as virtual NVM;
     - The application must explicitly allocate virtual NVRAM memory using 
       pmalloc(size) and pfree(pointer, size) API provided by the emulator. 
+      
 See the NVM programming section below.
 
 
@@ -227,11 +237,12 @@ However, it is really required to use this API in the DRAM+NVM mode so the
 emulator can clearly differentiate DRAM from NVM memory access latencies.
 This is the API available for user applications:
 
-void *pmalloc(size_t size);
-void pfree(void *start, size_t size);
+    void *pmalloc(size_t size);
+    void pfree(void *start, size_t size);
 
 The application can include the NVM_EMUL/src/lib/pmalloc.h header file to
 properly define these headers.
+
 See test/test_nvm.c and test/test_nvm_remote_dram.c for an example on how to
 allocate memory on respectively local DRAM or virtual NVM on a DRAM+NVM 
 emulation mode.
@@ -247,6 +258,7 @@ the report in the configuration file. When using a file as output, the emulator
 appends the result to the file and then previous reports are not overwritten.
 The statistics source code can also be statically removed at compile time. See 
 Building section.
+
 These are the reported statistics:
 
     - initialization duration   Time in micro seconds took by the emulator to 
@@ -299,6 +311,7 @@ hooks to switch the current CPU counters reading method to PAPI. Up to the time
 of this writing, there was no way to make PAPI CPU counter reading to perform 
 at the performance level required by the emulation. In the future, if it is 
 desired to switch to PAPI, follow these steps:
+
     - Device pmc_ioctl_setcounter() and emulator lib set_counter() in dev/pmc.c 
       calls can be deleted.
     - Define PAPI_SUPPORT for src/lib/* source code.
@@ -316,8 +329,10 @@ emulator will manage each emulated processes to partition the available CPUs in
 a coordinated way. It is recommended to set EMUL_LOCAL_PROCESSES with up to half 
 number of available CPU cores (note DRAM+NVM mode already reserves half of 
 available CPU cores).
+
 If EMUL_LOCAL_PROCESSES is not set or set with a value lower than 2, the 
 emulator will not partition CPU cores per process.
+
 If some process crashes the emulator might not have cleaned up the environment
 and the process rank ids will not be correctly managed. On this case, close all
 emulated processes and delete files /tmp/emul_lock_file and 
@@ -326,26 +341,34 @@ emulated processes and delete files /tmp/emul_lock_file and
 
 Bandwidth emulation
 -------------------
-Quartz supports an emulation mode with "throttled" memory bandwidth. The memory 
-bandwidth emulation  makes use of the copy kernel from the Stream benchmark, 
+Quartz supports an emulation mode with "throttled" memory bandwidth. 
+
+The memory bandwidth emulation  makes use of the copy kernel from the Stream benchmark, 
 openMP version. When the bandwidth emulation is enabled for a first time, Quartz
-creates a memory bandwidth model by utilizing the available Thermal Registers in the Memory Controller and measuring the corresponding memory bandwidth. This initial step of building a model might take several minutes (~10 min).
-This feature requires Thermal Register support in the Memory Controller.
-For the memory bandwitdh emulation, turn off the latency modeling
+creates a memory bandwidth model by utilizing the available Thermal Registers in the Memory Controller and measuring the corresponding memory bandwidth. This initial step of building a model might take several minutes **(~10min)**.
+This feature requires *Thermal Register* support in the Memory Controller.
+
+For the memory bandwitdh emulation, *turn off the latency modeling*
 in the configuration file and select all available NUMA nodes in the 
 configuration file in order to prepare the model for any combination of NUMA
 nodes selection.
+
 Modeling data will be cached to these files:
-  /tmp/bandwidth_model
-  /tmp/mc_pci_bus
+
+      /tmp/bandwidth_model
+      /tmp/mc_pci_bus
 As first step, the emulator will detect the Memory Controller Thermal Registers
 Control PCI addresses and cache it to /tmp/mc/pci_bus. After this step, the 
 emulator will close the current execution to safely clear NUMA bindings. Rerun
 the process to resume the work. 
 
-Quartz will create the file: /tmp/bandwidth_model. It reflects the relationship
-between Thermal Registers  and achievable memory bandwidth (in a single socket). The line format in this file is:
-  read <thermal register value> <memory bandwidth MB/s>
+Quartz will create the file: */tmp/bandwidth_model*. 
+
+It reflects the relationship between Thermal Registers  and achievable memory bandwidth (in a single socket). 
+
+The line format in this file is:
+
+    read <thermal register value> <memory bandwidth MB/s>
 This file should present ascending values of memory bandwidth ranging from
 hundreds of MiB/s to tens of GiB/S. These values (or their approximations) 
 can be used for the experiments with memory bandwidth throttling. Note, that 
@@ -354,17 +377,18 @@ the model is built once: it is cached and then used for all later experiments.
 For example, to enable memory bandwidth throttling at 2 GB/s, you should change
 the emulator configuration file  "nvmemul.ini" using the following settings:
 
-bandwidth:
-{
-    enable = true;
-    model = "/tmp/bandwidth_model";
-    read = 2000;
-    write = 2000;
-};
+    bandwidth:
+    {
+        enable = true;
+        model = "/tmp/bandwidth_model";
+        read = 2000;
+        write = 2000;
+    };
 
 Both read and write bandwidth values must be set 
 to the same value since the emulator does not model read/write independently in 
 the current version. See Limitations session.
+
 Finally, the bandwidth emulator considers the virtual NVRAM node only 
 (in the configuration with two sockets). So it is required the application 
 to keep processes/threads and data on the same NUMA node for bandwidth 
@@ -375,12 +399,14 @@ Limitations
 -----------
 The emulator functionality may be affected by certain conditions in user 
 applications:
+
     - application sets threads CPU and memory affinity.
     - application opens much more concurrent threads than available cores per 
       socket. Note that on DRAM+NVM emulation mode, half of the available CPU 
       cores is not used for user threads.
     - application sets handler for SIGUSR1.
 Other:
+
     - Write memory latency is not yet implemented.
     - Write/Read memory bandwidth emulation cannot be set independently.
     - The signal handler may cause syscalls in the application to fail. It is
@@ -399,3 +425,24 @@ Todo list
 ---------
 Please see accompanied TODO.dox or extended documentation for an extensive 
 list.
+
+#License
+
+    This program is free software; you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation; either version 2 of the License, or (at
+    your option) any later version. This program is distributed in the
+    hope that it will be useful, but WITHOUT ANY WARRANTY; without even
+    the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+    PURPOSE. See the GNU General Public License for more details. You
+    should have received a copy of the GNU General Public License along
+    with this program; if not, write to the Free Software Foundation,
+    Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+
+    
+#Copyright
+
+	    (c) Copyright 2016 Hewlett Packard Enterprise Development LP
+
+**NOTE**: This software depends on other packages that may be licensed under different open source licenses.
+
