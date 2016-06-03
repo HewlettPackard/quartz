@@ -8,17 +8,21 @@ byte-addressable NVM technologies.
 
 Quartz's design, implementation details, evaluation, and overhead  can be found 
 in the following research paper:
- - ** H. Volos, G. Magalhaes, L. Cherkasova, J. Li: Quartz: A Lightweight 
+ - **H. Volos, G. Magalhaes, L. Cherkasova, J. Li: Quartz: A Lightweight 
    Performance Emulator for Persistent Memory Software. In Proc. of the 
    16th ACM/IFIP/USENIX International Middleware Conference, (Middleware'2015),
    Vancouver, Canada, December 8-11, 2015.  and can be downloaded from:
-   http://www.labs.hpe.com/people/lucy_cherkasova/papers/middleware2015.pdf **
+   http://www.labs.hpe.com/people/lucy_cherkasova/papers/middleware2015.pdf**
 
 While the emulator is designed to cover three processor families:
 Sandy Bridge, Ivy Bridge, and Haswell -- we have had the best results
 on the Ivy Bridge platform. Haswell processor has a TurboBoost feature
 that cause higher variance and deviations when emulating higher range
 latencies (above 600 ns).
+
+Contributors
+----------------------
+For a list of contributors see AUTHORS.
 
 Extended documentation
 ----------------------
