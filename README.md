@@ -66,15 +66,17 @@ No specific Linux distribution or kernel version is required.
 Source code tree overview
 -------------------------
 
-    bench       Benchmarks
-    doc         Documentation, including Doxygen generated documentation (doc/html)
-    src/lib     Emulator main library code
-    src/dev     Kernel-module for accessing performance counters and 
-                memory-controller PCI registers
-    scripts     Helper scripts to run a program using the emulator and install 
-                dependencies
-    test        Several tests and application code examples
-
+    bench             Benchmarks
+    doc               Documentation, including Doxygen generated documentation (doc/html)
+    src/lib           Emulator main library code
+    src/dev           Kernel-module for accessing performance counters and 
+                      memory-controller PCI registers
+    scripts           Helper scripts to run a program using the emulator and install 
+                      dependencies
+    test              Several tests and application code examples
+    benchmark-tests   Several automated tests with benchmark runs and output analysis 
+                      for testing the correctness of configured emulation environment and 
+                      the accuracy of expected results
 For more details, please see the extended documentation generated using Doxygen.
 
 Building
@@ -372,6 +374,9 @@ This file should present ascending values of memory bandwidth ranging from
 hundreds of MiB/s to tens of GiB/S. These values (or their approximations) 
 can be used for the experiments with memory bandwidth throttling. Note, that 
 the model is built once: it is cached and then used for all later experiments.
+(You can also run a specially prepared  automated script *bandwidth-model-building.sh* in directory 
+*benchmark-tests*. For details see [README-BENCHMARKS-TESTING.md](https://github.hpe.com/labs/quartz/blob/master/README-BENCHMARKS-TESTING.md) ).
+
 
 For example, to enable memory bandwidth throttling at 2 GB/s, you should change
 the emulator configuration file  "nvmemul.ini" using the following settings:
@@ -393,6 +398,9 @@ Finally, the bandwidth emulator considers the virtual NVRAM node only
 to keep processes/threads and data on the same NUMA node for bandwidth 
 experiments.
 
+Automated Benchmark Runs
+-------------------------
+We have created several automated tests with benchmark runs and output analysis for testing the correctness of configured emulation environment and the accuracy of expected results. For details see [README-BENCHMARKS-TESTING.md](https://github.hpe.com/labs/quartz/blob/master/README-BENCHMARKS-TESTING.md). 
 
 Limitations
 -----------
