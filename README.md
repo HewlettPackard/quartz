@@ -220,11 +220,11 @@ latencies. It is supported only on IvyBridge, Haswell (and higher) Intel process
 sockets or more. A proper configuration as mentioned above and explicit calls 
 to NVM memory allocation in the application’s source code is required.
 
-    - The emulator will bind application threads to node 0 CPU and DRAM. The 
-      other CPU socket will not be used for application threads and the DRAM 
-      from this second socket will be used as virtual NVM;
-    - The application must explicitly allocate virtual NVRAM memory using 
-      pmalloc(size) and pfree(pointer, size) API provided by the emulator. 
+ - The emulator will bind application threads to node 0 CPU and DRAM. The 
+   other CPU socket will not be used for application threads and the DRAM 
+   from this second socket will be used as virtual NVM;
+ - The application must explicitly allocate virtual NVRAM memory using 
+   pmalloc(size) and pfree(pointer, size) API provided by the emulator. 
       
 See the NVM programming section below.
 
@@ -311,13 +311,12 @@ hooks to switch the current CPU counters reading method to PAPI. Up to the time
 of this writing, there was no way to make PAPI CPU counter reading to perform 
 at the performance level required by the emulation. In the future, if it is 
 desired to switch to PAPI, follow these steps:
-
-    - Device pmc_ioctl_setcounter() and emulator lib set_counter() in dev/pmc.c 
-      calls can be deleted.
-    - Define PAPI_SUPPORT for src/lib/* source code.
-    - Compile with lib/cpu/pmc-papi.c rather than lib/cpu/pmc.c.
-    - Link code with PAPI and add PAPI include directory.
-    - Some extra tweaks may be required, check TODOs in the code.
+ - Device pmc_ioctl_setcounter() and emulator lib set_counter() in dev/pmc.c 
+   calls can be deleted.
+ - Define PAPI_SUPPORT for src/lib/* source code.
+ - Compile with lib/cpu/pmc-papi.c rather than lib/cpu/pmc.c.
+ - Link code with PAPI and add PAPI include directory.
+ - Some extra tweaks may be required, check TODOs in the code.
 
 
 Multiple emulated processes and MPI programs
@@ -399,26 +398,24 @@ Limitations
 -----------
 The emulator functionality may be affected by certain conditions in user 
 applications:
-
-    - application sets threads CPU and memory affinity.
-    - application opens much more concurrent threads than available cores per 
-      socket. Note that on DRAM+NVM emulation mode, half of the available CPU 
-      cores is not used for user threads.
-    - application sets handler for SIGUSR1.
+ - application sets threads CPU and memory affinity.
+ - application opens much more concurrent threads than available cores per 
+   socket. Note that on DRAM+NVM emulation mode, half of the available CPU 
+   cores is not used for user threads.
+ - application sets handler for SIGUSR1.
 Other:
-
-    - Write memory latency is not yet implemented.
-    - Write/Read memory bandwidth emulation cannot be set independently.
-    - The signal handler may cause syscalls in the application to fail. It is
-      recommended to implement retries at the application level as a good practice 
-      for syscalls.
-    - Child process from fork() calls are not tracked by the emulator. As a
-      workaround, the emulator could make the library initialization function 
-      available in the external API. Applications then should call this function
-      in the beginning of the child process.
-    - OpenMP applications may use synchronization primitives not based on
-      pthreads which are currently not supported.
-    - See Todo session for details.
+ - Write memory latency is not yet implemented.
+ - Write/Read memory bandwidth emulation cannot be set independently.
+ - The signal handler may cause syscalls in the application to fail. It is
+   recommended to implement retries at the application level as a good practice 
+   for syscalls.
+ - Child process from fork() calls are not tracked by the emulator. As a
+   workaround, the emulator could make the library initialization function 
+   available in the external API. Applications then should call this function
+   in the beginning of the child process.
+ - OpenMP applications may use synchronization primitives not based on
+   pthreads which are currently not supported.
+ - See Todo session for details.
 
 
 Todo list
