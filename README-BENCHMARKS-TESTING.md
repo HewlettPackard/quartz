@@ -58,9 +58,9 @@ feedback on Quartz performance in your environment.
     
           The format is the following:
           1st column:    emulated latency (in nanoseconds)
-          2nd column:    minimum measured  latency (across 10 tests, in *ns*)
-          3d column:     average measured  latency (across 10 tests, in *ns*)
-          4th column:    maximum measured  latency (across 10 tests, in *ns*)
+          2nd column:    minimum measured  latency (across 10 tests, in ns)
+          3d column:     average measured  latency (across 10 tests, in ns)
+          4th column:    maximum measured  latency (across 10 tests, in ns)
           5th column:    average error (between emulated and measured latencies, in %)
           6th column:    max error (between emulated and measured latencies, in %)
 
