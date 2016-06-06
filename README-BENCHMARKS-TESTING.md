@@ -57,12 +57,12 @@ feedback on Quartz performance in your environment.
                    1000          926            956.5             966              4.35            7.4
     
           The format is the following:
-          1st column:    emulated latency
-          2nd column:    minimum measured  latency (across 10 tests)
-          3d column:     average measured  latency (across 10 tests)
-          4th column:    maximum measured  latency (across 10 tests)
-          5th column:    average error (between emulated and measured latencies)
-          6th column:    max error (between emulated and measured latencies)
+          1st column:    emulated latency (in nanoseconds)
+          2nd column:    minimum measured  latency (across 10 tests, in *ns*)
+          3d column:     average measured  latency (across 10 tests, in *ns*)
+          4th column:    maximum measured  latency (across 10 tests, in *ns*)
+          5th column:    average error (between emulated and measured latencies, in %)
+          6th column:    max error (between emulated and measured latencies, in %)
 
 One of the goals of the designed performance emulator is to provide a
 framework for application sensitivity studies under different
