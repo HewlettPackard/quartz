@@ -360,7 +360,7 @@ Modeling data will be cached to these files:
       /tmp/mc_pci_bus
 As first step, the emulator will detect the Memory Controller Thermal Registers
 Control PCI addresses and cache it to /tmp/mc/pci_bus. After this step, the 
-emulator will close the current execution to safely clear NUMA bindings. Rerun
+emulator will terminate the current execution to safely clear NUMA bindings. Rerun
 the process to resume the work. 
 
 Quartz will create the file: */tmp/bandwidth_model*. 
