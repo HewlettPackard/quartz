@@ -16,7 +16,7 @@ feedback on Quartz performance in your environment.
 - **memlat-orig-lat-test.sh**
 
     This script will measure your server hardware *memory access latency* in nanoseconds: local
-    and remote (for two sockets servers).  It will execute the test 20 times, and   write the results in directory *ORIG-lat-test*
+    and remote (for two sockets servers).  It will execute the test 20 times, and   write the results in directory *ORIG-lat-test*.
     You can find the summary of the results in the file *ORIG-lat-test/final-hw-latency.txt*.
     It will have measurements like:
     
@@ -24,7 +24,7 @@ feedback on Quartz performance in your environment.
                            91             91.9           92           152        163.9           176
    
     First three numbers show: minimal, average and maximum measured local
-    memory access latency (out of 20 measurements). The last three numbers
+    memory access latency (in ns, over 20 measurements). The last three numbers
     show show similar measurements for  access latency of the remote memory,
     i.e., in the second socket.
 
