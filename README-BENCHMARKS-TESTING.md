@@ -15,15 +15,14 @@ feedback on Quartz performance in your environment.
 
 - **memlat-orig-lat-test.sh**
 
-   This script will measure your server hardware memory access latency: local
-   and remote (for two sockets servers).  It will execute the test 20 times, and   write the results in directory *ORIG-lat-test*
-   You can find the summary of the results in the file *ORIG-lat-test/final-hw-latency.txt*.
-   It will have measurements like:
-
-     > *FORMAT:  1_min_local  2_aver_local  3_max_local  4_min_remote  5_aver_remote  6_max_remote*
-
-     > *91      91.9      92     152    163.9     176*
-
+    This script will measure your server hardware *memory access latency* in nanoseconds: local
+    and remote (for two sockets servers).  It will execute the test 20 times, and   write the results in directory *ORIG-lat-test*
+    You can find the summary of the results in the file *ORIG-lat-test/final-hw-latency.txt*.
+    It will have measurements like:
+    
+               FORMAT:  1_min_local  2_aver_local  3_max_local  4_min_remote  5_aver_remote  6_max_remote
+                           91             91.9           92           152        163.9           176
+   
     First three numbers show: minimal, average and maximum measured local
     memory access latency (out of 20 measurements). The last three numbers
     show show similar measurements for  access latency of the remote memory,
@@ -45,41 +44,25 @@ feedback on Quartz performance in your environment.
     In the directory SUMMARY-RESULTS-test, you will find two files that
     summarize the outcome of the experiments in the local and remote sockets.
     The outcome should look like this:
-
-    >*FORMAT: 1_emul_lat(ns) 2_min_meas_lat(ns)  3_aver_meas_lat(ns)  4_max_meas_lat(ns)  5_aver_error(%) 6_max_error(%)*
-
-    >*200 177 197.9 204 1.05 11.5*
-
-    >*300 259 289.5 300 3.5 13.6667*
-
-    >*400 354 382.6 395 4.35 11.5*
-
-    >*500 468 485.8 490 2.84 6.4*
-
-    >*600 554 575.3 585 4.11667 7.66667*
-
-    >*700 640 666.6 681 4.77143 8.57143*
-
-    >*800 749 766.4 776 4.2 6.375*
-
-   >*900 851 866.2 871 3.75556 5.44444*
-
-    >*1000 926 956.5 966 4.35 7.4*
-
-
-    *The format is the following:*
-
-    *1st column:* emulated latency
-
-    *2nd column:* minimum measured  latency (across 10 tests)
-
-    *3d column:* average measured  latency (across 10 tests)
-
-    *4th column:* maximum measured  latency (across 10 tests)
-
-    *5th column:* average error (between emulated and measured latencies)
-
-    *6th column:* max error (between emulated and measured latencies)
+    
+          FORMAT: 1_emul_lat  2_min_meas_lat  3_aver_meas_lat  4_max_meas_lat  5_aver_error(%) 6_max_error(%)
+                   200           177            197.9             204              1.05            11.5
+                   300           259            289.5             300              3.5             13.6  
+                   400           354            382.6             395              4.3             11.5
+                   500           468            485.8             490              2.8             6.4
+                   600           554            575.3             585              4.1             7.6
+                   700           640            666.6             681              4.7             8.5
+                   800           749            766.4             776              4.2             6.3
+                   900           851            866.2             871              3.7             5.4
+                   1000          926            956.5             966              4.35            7.4
+    
+          The format is the following:
+          1st column:    emulated latency
+          2nd column:    minimum measured  latency (across 10 tests)
+          3d column:     average measured  latency (across 10 tests)
+          4th column:    maximum measured  latency (across 10 tests)
+          5th column:    average error (between emulated and measured latencies)
+          6th column:    max error (between emulated and measured latencies)
 
 One of the goals of the designed performance emulator is to provide a
 framework for application sensitivity studies under different
