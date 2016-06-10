@@ -18,3 +18,4 @@ echo performance | sudo tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governo
 cp  nvmemul-bandwidth.ini  nvmemul.ini
 rm /tmp/bandwidth_model
 ../build/bench/memlat/memlat 1 1 1 1000000 64 8 0 0
+../build/bench/memlat/memlat 1 1 1 1000000 64 8 0 0
