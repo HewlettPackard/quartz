@@ -25,6 +25,7 @@ mkdir $dir_name_res
 
 
 cp  nvmemul-debug.ini  nvmemul.ini
+../build/bench/memlat/memlat 1 1 1 1000000 64 8 0 1
 
 #FORMAT: ns
 #FORMAT: min_local #2_aver_local max_local min_remote #5_aver_remote max_remote 
@@ -32,7 +33,7 @@ cp  nvmemul-debug.ini  nvmemul.ini
 
 for time in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20
 do
-    ../build/bench/memlat/memlat 1 1 1 1006000 64 8 0 1 > $dir_name_res/foo-hw-latency.txt
+    ../build/bench/memlat/memlat 1 1 1 1000000 64 8 0 1 > $dir_name_res/foo-hw-latency.txt
     grep "measuring latency: latency is" $dir_name_res/foo-hw-latency.txt > $dir_name_res/foo
     awk 'NR==1 {local=$7;}
          NR==2 {remote=$7;}
