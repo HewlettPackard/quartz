@@ -149,7 +149,7 @@ int discover_mc_pci_topology(cpu_model_t* cpu_model, physical_node_t* physical_n
 
     if (dev_count < num_physical_nodes) {
         // TODO: application is terminated on error only if in DEBUG mode
-        DBG_LOG(ERROR, "The number of physical nodes is greater than the number of memory-controller pci buses.\n");
+        DBG_LOG(WARNING, "The number of physical nodes is greater than the number of memory-controller pci buses.\n");
     }
 
     for (b=0; b<dev_count; b++) {
@@ -238,8 +238,7 @@ static int load_mc_pci_topology(const char* path, physical_node_t* physical_node
     }
     free(line);
     if (dev_count < num_physical_nodes) {
-        DBG_LOG(INFO, "No complete memory-controller pci topology found in %s\n", path);
-        return E_ERROR;
+        DBG_LOG(WARNING, "No complete memory-controller pci topology found in %s\n", path);
     }
     fclose(fp);
     return E_SUCCESS;
@@ -263,7 +262,7 @@ static int save_mc_pci_topology(const char* path, physical_node_t* physical_node
     for (i=0; i<num_physical_nodes; i++) {
         pci_regs_t *regs = physical_nodes[i]->mc_pci_regs;
         int node_id = physical_nodes[i]->node_id;
-        for (j=0; j < regs->channels; ++j) {
+        for (j=0; regs != NULL && j < regs->channels; ++j) {
             DBG_LOG(INFO, "node: %d, pci addr: %x:%x.%x\n", node_id, regs->addr[j].bus_id, regs->addr[j].dev_id, regs->addr[j].funct);
             fprintf(fp, "%d\t%x:%x.%x\n", node_id, regs->addr[j].bus_id, regs->addr[j].dev_id, regs->addr[j].funct);
         }
@@ -388,6 +387,7 @@ int init_virtual_topology(config_t* cfg, cpu_model_t* cpu_model, virtual_topolog
         node_id = physical_node_ids[i];
         if (numa_bitmask_isbitset(mem_nodes, node_id)) {
             physical_nodes[n] = malloc(sizeof(**physical_nodes));
+            memset(physical_nodes[n], 0, sizeof(**physical_nodes));
             physical_nodes[n]->node_id = node_id;
             physical_nodes[n]->cpu_bitmask = numa_allocate_cpumask();
             physical_nodes[n]->cpu_model = cpu_model;

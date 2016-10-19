@@ -183,6 +183,10 @@ int __set_write_bw(physical_node_t* node, uint64_t target_bw)
     int ret;
     unsigned int point;
 
+    if (regs == NULL) {
+        return E_SUCCESS;
+    }
+
     if (target_bw == (uint64_t) (-1)) {
         node->cpu_model->set_throttle_register(regs, THROTTLE_DDR_ACT, 0x8fff);
         return E_SUCCESS;
@@ -210,6 +214,10 @@ int __set_read_bw(physical_node_t* node, uint64_t target_bw)
     pci_regs_t *regs = node->mc_pci_regs;
     int ret;
     unsigned int point;
+
+    if (regs == NULL) {
+        return E_SUCCESS;
+    }
 
     if (target_bw == (uint64_t) (-1)) {
         node->cpu_model->set_throttle_register(regs, THROTTLE_DDR_ACT, 0x8fff);

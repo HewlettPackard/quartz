@@ -89,7 +89,7 @@ cpu_model_t cpu_model_intel_xeon_ex = {
 };
 
 cpu_model_t cpu_model_intel_xeon_ex_v3 = {
-    .desc = {"Intel", "Haswell", "Xeon", "E[0-9]-[0-9][0-9][0-9][0-9] v3"},
+    .desc = {"Intel", "Haswell", "Xeon", "E[0-9]-[0-9][0-9][0-9][0-9][A-Z]? v3"},
 #ifdef PAPI_SUPPORT
     .pmc_events = {haswell_native_events, haswell_read_stall_events_local, haswell_read_stall_events_remote},
 #else

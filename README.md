@@ -8,12 +8,11 @@ byte-addressable NVM technologies.
 
 Quartz's design, implementation details, evaluation, and overhead  can be found 
 in the following research paper:
-
-  - **H. Volos, G. Magalhaes, L. Cherkasova, J. Li: Quartz: A Lightweight 
-    Performance Emulator for Persistent Memory Software. In Proc. of the 
-    16th ACM/IFIP/USENIX International Middleware Conference, (Middleware'2015),
-    Vancouver, Canada, December 8-11, 2015.  and can be downloaded from:
-    http://www.labs.hpe.com/people/lucy_cherkasova/papers/middleware2015.pdf**
+ - **H. Volos, G. Magalhaes, L. Cherkasova, J. Li: Quartz: A Lightweight 
+   Performance Emulator for Persistent Memory Software. In Proc. of the 
+   16th ACM/IFIP/USENIX International Middleware Conference, (Middleware'2015),
+   Vancouver, Canada, December 8-11, 2015.  and can be downloaded from:
+   http://www.labs.hpe.com/people/lucy_cherkasova/papers/middleware2015.pdf**
 
 While the emulator is designed to cover three processor families:
 *Sandy Bridge, Ivy Bridge*, and *Haswell* -- we have had the best results
@@ -23,7 +22,7 @@ latencies (above 600 ns).
 
 Contributors
 ----------------------
-For a list of contributors see [AUTHORS](https://github.com/HewlettPackard/quartz/blob/master/AUTHORS).
+For a list of contributors see [AUTHORS](https://github.hpe.com/labs/quartz/blob/master/AUTHORS). 
 
 Extended documentation
 ----------------------
@@ -77,6 +76,7 @@ Source code tree overview
     benchmark-tests   Several automated tests with benchmark runs and output analysis 
                       for testing the correctness of configured emulation environment and 
                       the accuracy of expected results
+
 For more details, please see the extended documentation generated using Doxygen.
 
 Building
@@ -208,7 +208,6 @@ The main available parameters are:
 Latency emulation modes
 -----------------------
 The emulator may run application threads on a *NVM only* mode or *DRAM+NVM* mode.
-
 It depends if the system has more than one CPU socket and if the topology 
 configuration enables multiple CPU socket.
 
@@ -218,16 +217,15 @@ access on this socket will produce delays injection to emulate the target
 latency.
 
 For *DRAM+NVM* mode, the emulator will differentiate DRAM from virtual NVM 
-latencies. It is supported only on IvyBridge, Haswell (and higher) Intel processor systems with 2 CPU
-sockets or more. A proper configuration as mentioned above and explicit calls 
-to NVM memory allocation in the application’s source code is required.
+latencies. It is supported only on IvyBridge, Haswell (and higher) Intel processor 
+systems with 2 CPU sockets or more. A proper configuration as mentioned above and 
+explicit calls to NVM memory allocation in the application’s source code is required.
+- The emulator will bind application threads to node 0 CPU and DRAM. The 
+ other CPU socket will not be used for application threads and the DRAM 
+from this second socket will be used as virtual NVM;
+- The application must explicitly allocate virtual NVRAM memory using 
+pmalloc(size) and pfree(pointer, size) API provided by the emulator. 
 
- - The emulator will bind application threads to node 0 CPU and DRAM. The 
-   other CPU socket will not be used for application threads and the DRAM 
-   from this second socket will be used as virtual NVM;
- - The application must explicitly allocate virtual NVRAM memory using 
-   pmalloc(size) and pfree(pointer, size) API provided by the emulator. 
-      
 See the NVM programming section below.
 
 
@@ -244,7 +242,6 @@ This is the API available for user applications:
 
 The application can include the NVM_EMUL/src/lib/pmalloc.h header file to
 properly define these headers.
-
 See test/test_nvm.c and test/test_nvm_remote_dram.c for an example on how to
 allocate memory on respectively local DRAM or virtual NVM on a DRAM+NVM 
 emulation mode.
@@ -346,8 +343,9 @@ Quartz supports an emulation mode with "throttled" memory bandwidth.
 
 The memory bandwidth emulation  makes use of the copy kernel from the Stream benchmark, 
 openMP version. When the bandwidth emulation is enabled for a first time, Quartz
-creates a memory bandwidth model by utilizing the available Thermal Registers in the Memory Controller and measuring the corresponding memory bandwidth. This initial step of building a model might take several minutes **(~10min)**.
-This feature requires *Thermal Register* support in the Memory Controller.
+creates a memory bandwidth model by utilizing the available *Thermal Registers* in the 
+Memory Controller and measuring the corresponding memory bandwidth. This initial step of 
+building a model might take several minutes **(~10min)**.
 
 For the memory bandwitdh emulation, *turn off the latency modeling*
 in the configuration file and select all available NUMA nodes in the 
@@ -356,51 +354,54 @@ nodes selection.
 
 Modeling data will be cached to these files:
 
-      /tmp/bandwidth_model
-      /tmp/mc_pci_bus
+    /tmp/bandwidth_model
+    /tmp/mc_pci_bus
 As first step, the emulator will detect the Memory Controller Thermal Registers
 Control PCI addresses and cache it to /tmp/mc/pci_bus. After this step, the 
-emulator will terminate the current execution to safely clear NUMA bindings. Rerun
+emulator will close the current execution to safely clear NUMA bindings. Rerun
 the process to resume the work. 
 
-Quartz will create the file: */tmp/bandwidth_model*. 
+Quartz will create the file: **/tmp/bandwidth_model**. 
 
-It reflects the relationship between Thermal Registers  and achievable memory bandwidth (in a single socket). 
-
-The line format in this file is:
+It reflects the relationship between Thermal Registers and achievable memory 
+bandwidth (in a single socket). The line format in this file is:
 
     read <thermal register value> <memory bandwidth MB/s>
 This file should present ascending values of memory bandwidth ranging from
 hundreds of MiB/s to tens of GiB/S. These values (or their approximations) 
 can be used for the experiments with memory bandwidth throttling. Note, that 
 the model is built once: it is cached and then used for all later experiments.
-(You can also run a specially prepared  automated script *bandwidth-model-building.sh* in directory 
-*benchmark-tests*. For details see [README-BENCHMARKS-TESTING.md](https://github.hpe.com/labs/quartz/blob/master/README-BENCHMARKS-TESTING.md) ).
-
+(You can also run a specially prepared  automated script *bandwidth-model-building.sh* 
+in directory *benchmark-tests*. For details see [README-BENCHMARKS-TESTING.md]
+(https://github.hpe.com/labs/quartz/blob/master/README-BENCHMARKS-TESTING.md).
 
 For example, to enable memory bandwidth throttling at 2 GB/s, you should change
 the emulator configuration file  "nvmemul.ini" using the following settings:
 
     bandwidth:
     {
-        enable = true;
-        model = "/tmp/bandwidth_model";
-        read = 2000;
-        write = 2000;
+    enable = true;
+    model = "/tmp/bandwidth_model";
+    read = 2000;
+    write = 2000;
     };
 
-Both read and write bandwidth values must be set 
-to the same value since the emulator does not model read/write independently in 
-the current version. See Limitations session.
+Both read and write bandwidth values must be set to the same value since the 
+emulator does not model read/write independently in the current version. 
+See Limitations session.
 
-Finally, the bandwidth emulator considers the virtual NVRAM node only 
-(in the configuration with two sockets). So it is required the application 
-to keep processes/threads and data on the same NUMA node for bandwidth 
-experiments.
+The pmalloc() family is not intended to be used with the bandwidth modeling. Use
+numactl for instance to bind CPU and memory of the used application to the 
+intended NUMA node depending. The bandwidth emulator considers the virtual NVRAM 
+node only (in the configuration with two sockets). So it is required the application 
+to keep processes/threads and data on the same NUMA node for bandwidth experiments.
 
 Automated Benchmark Runs
 -------------------------
-We have created several automated tests with benchmark runs and output analysis for testing the correctness of configured emulation environment and the accuracy of expected results. For details see [README-BENCHMARKS-TESTING.md](https://github.hpe.com/labs/quartz/blob/master/README-BENCHMARKS-TESTING.md). 
+We have created several automated tests with benchmark runs and output analysis 
+for testing the correctness of configured emulation environment and the accuracy 
+of expected results. For details see [README-BENCHMARKS-TESTING.md]
+(https://github.hpe.com/labs/quartz/blob/master/README-BENCHMARKS-TESTING.md).
 
 Limitations
 -----------
