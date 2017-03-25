@@ -21,6 +21,7 @@ Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #include "topology.h"
 #include "interpose.h"
 #include "monotonic_timer.h"
+#include "pflush.h"
 #include "stat.h"
 
 static void init() __attribute__((constructor));
@@ -141,6 +142,9 @@ void init()
             }
         }
 #endif
+        int write_latency;
+        __cconfig_lookup_bool(&cfg, "latency.write", &write_latency);
+        init_pflush(cpu_speed_mhz(), write_latency);
     }
 
     end_time = monotonic_time_us();

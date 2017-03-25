@@ -21,6 +21,7 @@ set(nvmemul_src
     monotonic_timer.c
     model_bw.c
     model_lat.c
+    pflush.c
     pmalloc.c
     stat.c
     thread.c
