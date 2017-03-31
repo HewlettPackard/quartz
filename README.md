@@ -12,7 +12,7 @@ in the following research paper:
    Performance Emulator for Persistent Memory Software. In Proc. of the 
    16th ACM/IFIP/USENIX International Middleware Conference, (Middleware'2015),
    Vancouver, Canada, December 8-11, 2015.  and can be downloaded from:
-   http://www.labs.hpe.com/people/lucy_cherkasova/papers/middleware2015.pdf**
+   http://www.jahrhundert.net/papers/middleware2015.pdf**
 
 While the emulator is designed to cover three processor families:
 *Sandy Bridge, Ivy Bridge*, and *Haswell* -- we have had the best results
