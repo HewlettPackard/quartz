@@ -76,9 +76,10 @@ int intel_xeon_ex_get_throttle_register(pci_regs_t *regs, throttle_type_t thrott
 }
 
 
+// desc is fixed in cpu_model() if not Xeon
+
 cpu_model_t cpu_model_intel_xeon_ex = {
-	// FIXME: IvyBridge and Haswell have the same numbers, but V2 or V3 as suffix, we must exclude those
-    .desc = {"Intel", "SandyBridge", "Xeon", "E[0-9]-[0-9][0-9][0-9][0-9]"},
+    .microarch = SandyBridgeXeon,
 #ifdef PAPI_SUPPORT
     .pmc_events = {sandybridge_native_events, sandybridge_read_stall_events_local, NULL},
 #else
@@ -88,23 +89,23 @@ cpu_model_t cpu_model_intel_xeon_ex = {
     .get_throttle_register = intel_xeon_ex_get_throttle_register
 };
 
-cpu_model_t cpu_model_intel_xeon_ex_v3 = {
-    .desc = {"Intel", "Haswell", "Xeon", "E[0-9]-[0-9][0-9][0-9][0-9][A-Z]? v3"},
+cpu_model_t cpu_model_intel_xeon_ex_v2 = {
+    .microarch = IvyBridgeXeon,
 #ifdef PAPI_SUPPORT
-    .pmc_events = {haswell_native_events, haswell_read_stall_events_local, haswell_read_stall_events_remote},
+    .pmc_events = {ivybridge_native_events, ivybridge_read_stall_events_local, ivybridge_read_stall_events_remote},
 #else
-    .pmc_events = PMC_EVENTS_PTR(haswell),
+    .pmc_events = PMC_EVENTS_PTR(ivybridge),
 #endif
     .set_throttle_register = intel_xeon_ex_set_throttle_register,
     .get_throttle_register = intel_xeon_ex_get_throttle_register
 };
 
-cpu_model_t cpu_model_intel_xeon_ex_v2 = {
-    .desc = {"Intel", "IvyBridge", "Xeon", "E[0-9]-[0-9][0-9][0-9][0-9] v2"},
+cpu_model_t cpu_model_intel_xeon_ex_v3 = {
+    .microarch = HaswellXeon,
 #ifdef PAPI_SUPPORT
-    .pmc_events = {ivybridge_native_events, ivybridge_read_stall_events_local, ivybridge_read_stall_events_remote},
+    .pmc_events = {haswell_native_events, haswell_read_stall_events_local, haswell_read_stall_events_remote},
 #else
-    .pmc_events = PMC_EVENTS_PTR(ivybridge),
+    .pmc_events = PMC_EVENTS_PTR(haswell),
 #endif
     .set_throttle_register = intel_xeon_ex_set_throttle_register,
     .get_throttle_register = intel_xeon_ex_get_throttle_register
