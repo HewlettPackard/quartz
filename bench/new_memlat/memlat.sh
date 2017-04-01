@@ -65,7 +65,7 @@ function check_parameters()
 function verify_run
 {
     target=$(cat ${TEMP_FILE} | grep "target latency" | awk '{ print $3 }')
-    measured=$(cat ${TEMP_FILE} | grep "measured latency" | awk '{ print $3 }')
+    measured=$(cat ${TEMP_FILE} | grep "measured latency" | awk '{ print $4 }')
 
     if [ ${measured} -gt ${target} ]; then
         delta=$(expr ${measured} - ${target});
