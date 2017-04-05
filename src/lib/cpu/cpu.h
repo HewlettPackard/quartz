@@ -31,21 +31,30 @@ typedef enum {
     THROTTLE_DDR_WRITE
 } throttle_type_t;
 
-typedef struct {
-    const char* vendor_name;
-    const char* uarch;
-    const char* brand_name;
-    const char* brand_processor_number;
-} cpu_desc_t;
+// order matters. see cpu_model()
+typedef enum {
+    Invalid,
+    SandyBridge,
+    SandyBridgeXeon,
+    IvyBridge,
+    IvyBridgeXeon,
+    Haswell,
+    HaswellXeon
+} microarch_t;
 
-
+typedef struct
+{
+    int family;
+    int model;
+    microarch_t microarch;
+} microarch_ID_t;
 
 /**
  *  CPU object that encapsulates processor-specific methods for accessing
  *  performance counters and memory controller PCI registers
  */
 typedef struct cpu_model_s {
-    cpu_desc_t desc; // processor brand name description
+    microarch_t microarch; // processor description
     size_t llc_size_bytes; // last level cache size
 //    int speed_mhz; // cpu clock frequency
     struct pmc_events_s* pmc_events; // performance monitoring events supported by the processor

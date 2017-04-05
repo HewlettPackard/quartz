@@ -14,16 +14,41 @@ Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #ifndef __KNOWN_CPUS_H
 #define __KNOWN_CPUS_H
 
-#include "xeon-ex.h"
+#include "cpu.h"
 
-// XEON E5 (SandyBridge) and E5/E7 v2 (IvyBridge) may have the same CPU numbers, except by the "v2" on IvyBridge (and v3 on Haswell).
-// Make sure the v2, v3, .. are defined before SandyBridge entry below as a workaround for the CPU match algorithm.
-cpu_model_t* known_cpus[] = {
-	&cpu_model_intel_xeon_ex_v3,
-    &cpu_model_intel_xeon_ex_v2,
-    &cpu_model_intel_xeon_ex,
-    0
-};
+// later, cpu_model_name() is used to distinguish between
+// Xeon and non-Xeon processors. It's much easier here
+// to consider all processors non-Xeon.
+// references:
+// 1- http://a4lg.com/tech/x86/database/x86-families-and-models.en.html
+// 2- Intel® Xeon® Processor E7-8800/4800 v3 Product Family Specification
+// 3- https://software.intel.com/en-us/articles/intel-architecture-and-processor-identification-with-cpuid-model-and-family-numbers
+microarch_ID_t known_cpus[] =
+    {
+        // order does not matter
+        {.family = 0x06, .model = 0x2A, .microarch = SandyBridge},
+        {.family = 0x06, .model = 0x2D, .microarch = SandyBridge},
 
+        {.family = 0x06, .model = 0x3A, .microarch = IvyBridge},
+        {.family = 0x06, .model = 0x3E, .microarch = IvyBridge},
+
+        {.family = 0x06, .model = 0x3C, .microarch = Haswell},
+        {.family = 0x06, .model = 0x3F, .microarch = Haswell},
+        {.family = 0x06, .model = 0x45, .microarch = Haswell},
+        {.family = 0x06, .model = 0x46, .microarch = Haswell},
+
+        // must be the last element
+        {.family = 0x0, .model = 0x0, .microarch = Invalid}};
+
+// order must correspond to microarch_t
+char *microarch_strings[] =
+    {
+        "Invalid",
+        "Sandy Bridge",
+        "Sandy Bridge Xeon",
+        "Ivy Bridge",
+        "Ivy Bridge Xeon",
+        "Haswell",
+        "Haswell Xeon"};
 
 #endif /* __KNOWN_CPUS_H */
