@@ -16,7 +16,11 @@ Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #include <string.h>
 #include <stdlib.h>
 #include <stdarg.h>
+#include <unistd.h>
 #include <ctype.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+
 
 #define ENVVAR_MAX_LEN 128
 
@@ -261,6 +265,7 @@ __cconfig_init(config_t *cfg, const char *config_file)
 {
     int ret;
 	char* env_config_file;
+    struct stat statbuf;
 
 	if ((env_config_file = __getenv(ENVVAR_PREFIX, "INI"))) {
 		config_file = env_config_file;
@@ -268,7 +273,11 @@ __cconfig_init(config_t *cfg, const char *config_file)
 	
 	config_init(cfg);
 	if ((ret = config_read_file(cfg, config_file)) == CONFIG_FALSE) {
-        fprintf(stderr, "ERROR: nvmemul: Configuration file %s not found.\n", config_file);
+        if (stat(config_file, &statbuf) == 0) {
+            fprintf(stderr, "ERROR: nvmemul: Configuration file %s found but cannot be parsed.\n", config_file);
+        } else {
+            fprintf(stderr, "ERROR: nvmemul: Configuration file %s not found.\n", config_file);
+        }
     }
     return ret;
 }

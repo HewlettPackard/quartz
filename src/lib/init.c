@@ -12,6 +12,7 @@ with this program; if not, write to the Free Software Foundation,
 Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 ***************************************************************************/
 #include <errno.h>
+#include <unistd.h>
 #include "cpu/cpu.h"
 #include "config.h"
 #include "error.h"
@@ -62,37 +63,23 @@ void finalize() {
     //__cconfig_destroy(&cfg);
 }
 
-void init()
+int fam_init(config_t* cfg, int cpu_speed_mhz);
+
+int init_fam_model(config_t* cfg)
 {
-    config_t cfg;
+    // to make sure finalize does not do any latency/bwmodel unitialization as fam doesn't use it
+    latency_model.enabled = 0; 
+    read_bw_model.enabled = 0;
+
+    return fam_init(cfg, cpu_speed_mhz());
+}
+
+int init_pmem_model(config_t* cfg)
+{
     cpu_model_t* cpu;
-    char* ld_preload_path;
-    double start_time, end_time;
-#ifdef CALIBRATION_SUPPORT
-    int i;
-#endif
 
-    // FIXME: do we need to register the main thread with our system?
-    // YES: for sure for single-threaded apps
-
-    start_time = monotonic_time_us();
-
-    // we reset LD_PRELOAD to ensure we don't get into recursive preloads when 
-    // calling popen during initialization. before exiting we reactivate LD_PRELOAD 
-    // to allow LD_PRELOADS on children
-    ld_preload_path = getenv("LD_PRELOAD");
-    unsetenv("LD_PRELOAD");
-
-    if (__cconfig_init(&cfg, "nvmemul.ini") == CONFIG_FALSE) {
-        goto error;
-    }
-
-    __cconfig_lookup_bool(&cfg, "latency.enable", &latency_model.enabled);
-    __cconfig_lookup_bool(&cfg, "bandwidth.enable", &read_bw_model.enabled);
-
-    if (dbg_init(&cfg, -1, NULL) != E_SUCCESS) {
-        goto error;
-    }
+    __cconfig_lookup_bool(cfg, "latency.enable", &latency_model.enabled);
+    __cconfig_lookup_bool(cfg, "bandwidth.enable", &read_bw_model.enabled);
 
     if (init_interposition() != E_SUCCESS) {
         goto error;
@@ -103,22 +90,22 @@ void init()
         goto error;
     }
 
-    init_virtual_topology(&cfg, cpu, &virtual_topology);
+    init_virtual_topology(cfg, cpu, &virtual_topology);
 
-    if (init_bandwidth_model(&cfg, virtual_topology) != E_SUCCESS) {
+    if (init_bandwidth_model(cfg, virtual_topology) != E_SUCCESS) {
         goto error;
     }
 
     if (latency_model.enabled) {
-        if (init_latency_model(&cfg, cpu, virtual_topology) != E_SUCCESS) {
+        if (init_latency_model(cfg, cpu, virtual_topology) != E_SUCCESS) {
    	        goto error;
         }
 
-        init_thread_manager(&cfg, virtual_topology);
+        init_thread_manager(cfg, virtual_topology);
 
 #ifdef USE_STATISTICS
         // statistics makes use of the thread manager and is used by the register_self()
-        stats_enable(&cfg);
+        stats_enable(cfg);
 #endif
 
         set_process_local_rank();
@@ -143,8 +130,56 @@ void init()
         }
 #endif
         int write_latency;
-        __cconfig_lookup_bool(&cfg, "latency.write", &write_latency);
+        __cconfig_lookup_bool(cfg, "latency.write", &write_latency);
         init_pflush(cpu_speed_mhz(), write_latency);
+    }
+
+    return E_SUCCESS;
+
+error:
+    return E_ERROR;
+}
+
+void init()
+{
+    config_t cfg;
+    char* ld_preload_path;
+    double start_time, end_time;
+#ifdef CALIBRATION_SUPPORT
+    int i;
+#endif
+
+    // FIXME: do we need to register the main thread with our system?
+    // YES: for sure for single-threaded apps
+
+    start_time = monotonic_time_us();
+
+    // we reset LD_PRELOAD to ensure we don't get into recursive preloads when 
+    // calling popen during initialization. before exiting we reactivate LD_PRELOAD 
+    // to allow LD_PRELOADS on children
+    ld_preload_path = getenv("LD_PRELOAD");
+    unsetenv("LD_PRELOAD");
+
+    if (__cconfig_init(&cfg, "nvmemul.ini") == CONFIG_FALSE) {
+        goto error;
+    }
+
+    if (dbg_init(&cfg, -1, NULL) != E_SUCCESS) {
+        goto error;
+    }
+
+    char* mode;
+    __cconfig_lookup_string(&cfg, "general.mode", &mode);
+
+    if (strcmp(mode, "fam") == 0) {
+        if (init_fam_model(&cfg) != E_SUCCESS) {
+            goto error;
+        }
+    } 
+    else if (strcmp(mode, "pmem") == 0) {
+        if (init_pmem_model(&cfg) != E_SUCCESS) {
+            goto error; 
+        }
     }
 
     end_time = monotonic_time_us();

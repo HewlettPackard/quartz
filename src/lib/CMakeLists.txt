@@ -13,6 +13,7 @@ set(nvmemul_src
     config.c
     debug.c
     dev.c
+    fam_atomic.c
     init.c
     interpose.c
     measure_bw.c
@@ -30,6 +31,7 @@ set(nvmemul_src
 )
 
 include_directories(${CMAKE_SOURCE_DIR}/third_party)
+include_directories(${CMAKE_SOURCE_DIR}/include)
 include_directories(${CMAKE_SOURCE_DIR}/src)
 include_directories(${CMAKE_SOURCE_DIR}/src/lib)
 add_definitions(-g)
