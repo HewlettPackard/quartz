@@ -24,6 +24,7 @@ set(nvmemul_src
     model_lat.c
     pflush.c
     pmalloc.c
+    queue.c
     stat.c
     thread.c
     topology.c

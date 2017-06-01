@@ -20,6 +20,7 @@
 #include "quartz/fam_atomic.h"
 #include "config.h"
 #include "error.h"
+#include "queue.h"
 
 #define LOCK_PREFIX_HERE                  \
 	".pushsection .smp_locks,\"a\"\n" \
@@ -36,6 +37,13 @@
 
 #define u32 unsigned int
 #define u64 unsigned long long
+
+typedef struct {
+    queue_t reqs;
+
+} fam_thread_t;
+
+__thread fam_thread_t* fam_tls_thread = NULL;
 
 void fam_atomic_compare_exchange_wrong_size(void);
 void fam_atomic_xadd_wrong_size(void);
@@ -341,9 +349,56 @@ static inline void ioctl_16(struct fam_atomic_args_128 *args, unsigned int opt)
 	}
 }
 
+
+static void wait_all_reqs_complete(hrtime_t now)
+{
+    if (!fam_tls_thread) {
+        fam_tls_thread = malloc(sizeof(*fam_tls_thread));
+        queue_init(&fam_tls_thread->reqs, 2);
+    }
+
+    int reqs_waited = 0; 
+
+    while (!queue_is_empty(&fam_tls_thread->reqs)) 
+    {
+        hrtime_t oldest;
+        queue_front(&fam_tls_thread->reqs, (void**) &oldest);
+        hrtime_t target = oldest + ns_to_cycles(fam_model.cpu_speed_mhz, fam_model.atomic_latency);
+        if (asm_rdtsc() < target) {
+            reqs_waited++;
+        }
+        while (asm_rdtsc() < target);
+        queue_dequeue(&fam_tls_thread->reqs);
+    }
+
+    printf("waited: %d\n", reqs_waited);
+}
+
+static void wait_available_req_slot(hrtime_t now)
+{
+    if (!fam_tls_thread) {
+        fam_tls_thread = malloc(sizeof(*fam_tls_thread));
+        queue_init(&fam_tls_thread->reqs, 10);
+    }
+
+    if (queue_is_full(&fam_tls_thread->reqs)) 
+    {
+        hrtime_t oldest;
+        queue_front(&fam_tls_thread->reqs, (void**) &oldest);
+        hrtime_t target = oldest + ns_to_cycles(fam_model.cpu_speed_mhz, fam_model.atomic_latency);
+        while (asm_rdtsc() < target);
+        queue_dequeue(&fam_tls_thread->reqs);
+    }
+}
+
+
 static inline int simulated_ioctl(unsigned int opt, unsigned long args)
 {
-    emulate_latency_ns(fam_model.atomic_latency);
+    hrtime_t now = asm_rdtsc();
+
+    wait_available_req_slot(now);
+
+    queue_enqueue(&fam_tls_thread->reqs, (void*) now);
 
 	if (opt == FAM_ATOMIC_32_FETCH_AND_ADD ||
 	    opt == FAM_ATOMIC_32_SWAP ||
@@ -814,5 +869,11 @@ void fam_persist(const void *addr, size_t len)
         emulate_latency_ns(fam_model.persist_latency);
     }
     return;
+}
+
+void fam_fence()
+{
+    hrtime_t now = asm_rdtsc();
+    wait_all_reqs_complete(now);
 }
 
