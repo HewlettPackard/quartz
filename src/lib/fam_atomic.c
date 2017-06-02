@@ -137,6 +137,7 @@ typedef struct {
     int persist_enabled;
     int persist_latency;
     int atomic_latency;
+    int atomic_parallelism;
     int cpu_speed_mhz;
 } fam_model_t;
 
@@ -150,6 +151,7 @@ int fam_init(config_t* cfg, int cpu_speed_mhz)
     __cconfig_lookup_bool(cfg, "fam.persist", &fam_model.persist_enabled);
     __cconfig_lookup_int(cfg, "fam.persist_latency", &fam_model.persist_latency);
     __cconfig_lookup_int(cfg, "fam.atomic_latency", &fam_model.atomic_latency);
+    __cconfig_lookup_int(cfg, "fam.atomic_parallelism", &fam_model.atomic_parallelism);
 
     fam_model.cpu_speed_mhz = cpu_speed_mhz;
 
@@ -354,7 +356,7 @@ static void wait_all_reqs_complete(hrtime_t now)
 {
     if (!fam_tls_thread) {
         fam_tls_thread = malloc(sizeof(*fam_tls_thread));
-        queue_init(&fam_tls_thread->reqs, 2);
+        queue_init(&fam_tls_thread->reqs, fam_model.atomic_parallelism);
     }
 
     int reqs_waited = 0; 
@@ -370,15 +372,13 @@ static void wait_all_reqs_complete(hrtime_t now)
         while (asm_rdtsc() < target);
         queue_dequeue(&fam_tls_thread->reqs);
     }
-
-    printf("waited: %d\n", reqs_waited);
 }
 
 static void wait_available_req_slot(hrtime_t now)
 {
     if (!fam_tls_thread) {
         fam_tls_thread = malloc(sizeof(*fam_tls_thread));
-        queue_init(&fam_tls_thread->reqs, 10);
+        queue_init(&fam_tls_thread->reqs, fam_model.atomic_parallelism);
     }
 
     if (queue_is_full(&fam_tls_thread->reqs)) 
