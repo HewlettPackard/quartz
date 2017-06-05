@@ -28,6 +28,8 @@ void* worker(void* args)
 //    char* array = (char*) malloc(1024*1024);
 
     pthread_mutex_lock(&mutex);
+
+    pthread_mutex_unlock(&mutex);
     return NULL;
 }
 
@@ -41,6 +43,7 @@ int main(int argc, char** argv)
 
     pthread_mutex_init(&mutex, NULL);
     pthread_mutex_lock(&mutex);
+    pthread_mutex_unlock(&mutex);
 	for (i = 0; i< thread_count; i++)	
 		pthread_create(&thread[i], NULL, worker, NULL);
 
