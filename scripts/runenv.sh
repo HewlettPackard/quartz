@@ -37,6 +37,11 @@ fi
 
 $rootdir/scripts/turboboost.sh disable
 
+v=$(uname -r | cut -d '.' -f1)
+if [ $v -ge 4 ]; then
+    echo "2" | sudo tee /sys/bus/event_source/devices/cpu/rdpmc
+fi
+
 export LD_PRELOAD=$bindir"/src/lib/libnvmemul.so"
 export NVMEMUL_INI=$rootdir"/nvmemul.ini"
 
