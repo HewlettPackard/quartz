@@ -9,6 +9,10 @@ else()
   message(STATUS "WITHOUT STATISTICS")
 endif()
 
+set(quartzcore_src
+    topology.c
+)
+
 set(nvmemul_src
     config.c
     debug.c
@@ -27,7 +31,6 @@ set(nvmemul_src
     queue.c
     stat.c
     thread.c
-    topology.c
     process_rank.c
 )
 
@@ -46,7 +49,8 @@ add_definitions(-std=gnu89)
 #add_definitions(-std=c99)
 add_definitions(-msse4)
 add_subdirectory(cpu)
-add_library(nvmemul SHARED ${nvmemul_src} $<TARGET_OBJECTS:cpu>)
+add_library(quartzcore OBJECT ${quartzcore_src} cpu/cpu.c cpu/pmc.c)
+add_library(nvmemul SHARED ${nvmemul_src} $<TARGET_OBJECTS:quartzcore>)
 target_link_libraries(nvmemul dl)
 target_link_libraries(nvmemul config)
 target_link_libraries(nvmemul numa)

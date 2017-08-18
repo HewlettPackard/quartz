@@ -3,4 +3,4 @@ set(nvmemul_cpu_src
     pmc.c
 )
 
-add_library(cpu OBJECT ${nvmemul_cpu_src})
+#add_library(cpu OBJECT ${nvmemul_cpu_src})
