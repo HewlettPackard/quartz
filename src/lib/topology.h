@@ -42,8 +42,6 @@ Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
  */
  
-
-
 typedef struct {
     int node_id;
     cpu_model_t* cpu_model;
@@ -56,6 +54,7 @@ typedef struct {
     // if dram then latency is the measured local latency to dram.
     // if nvram then latency is the measured remote latency to the sibling nvram node
     int latency; 
+    int* latencies; // latencies to local and remote memory
 } physical_node_t;
 
 typedef struct virtual_node_s {
@@ -65,12 +64,19 @@ typedef struct virtual_node_s {
     //cpu_model_t* cpu_model;
 } virtual_node_t;
 
+typedef struct physical_topology_s {
+    physical_node_t* physical_nodes; // pointer to an array of physical nodes
+    int num_nodes;
+} physical_topology_t;
+
 typedef struct virtual_topology_s {
     virtual_node_t* virtual_nodes; // pointer to an array of virtual nodes
     int num_virtual_nodes;
 } virtual_topology_t;
 
 int init_virtual_topology(config_t* cfg, cpu_model_t* cpu_model, virtual_topology_t** virtual_topologyp);
+int discover_physical_topology(cpu_model_t* cpu_model, physical_topology_t** physical_topology);
+int physical_topology_from_xml(cpu_model_t* cpu_model, const char* xml_path, physical_topology_t** physical_topology);
 int system_num_cpus();
 int first_cpu(struct bitmask* bitmask);
 int next_cpu(struct bitmask* bitmask, int cpu_id);

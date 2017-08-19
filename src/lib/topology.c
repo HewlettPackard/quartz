@@ -24,6 +24,11 @@ Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #include <fcntl.h>
 #include <limits.h>
 #include <numa.h>
+#include <libxml/encoding.h>
+#include <libxml/xmlreader.h>
+#include <libxml/xmlwriter.h>
+
+
 #include "cpu/cpu.h"
 #include "error.h"
 #include "measure.h"
@@ -31,6 +36,8 @@ Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #include "model.h"
 
 #define MAX_NUM_MC_PCI_BUS 16
+
+#define MY_ENCODING "ISO-8859-1"
 
 extern latency_model_t latency_model;
 
@@ -125,7 +132,6 @@ int get_mc_pci_bus_list(pci_regs_t *bus_id_list[], int max_list_size, int* dev_c
     return E_SUCCESS;
 }
 
-
 /**
  *  \brief Discovers the physical memory-controller pci bus topology of the 
  *  machine, which includes the socket each memory controller is attached to
@@ -134,7 +140,7 @@ int get_mc_pci_bus_list(pci_regs_t *bus_id_list[], int max_list_size, int* dev_c
  *  the memory controllers and measure local bandwidth of each node. The unthrottled 
  *  memory controller is attached to the node with the highest local bandwidth
  */
-int discover_mc_pci_topology(cpu_model_t* cpu_model, physical_node_t* physical_nodes[], int num_physical_nodes)
+int discover_mc_pci_topology(cpu_model_t* cpu_model, physical_topology_t* physical_topology)
 {
     pci_regs_t *regs_addr[16];
     int dev_count;
@@ -147,7 +153,7 @@ int discover_mc_pci_topology(cpu_model_t* cpu_model, physical_node_t* physical_n
 
     get_mc_pci_bus_list(regs_addr, MAX_NUM_MC_PCI_BUS, &dev_count);
 
-    if (dev_count < num_physical_nodes) {
+    if (dev_count < physical_topology->num_nodes) {
         // TODO: application is terminated on error only if in DEBUG mode
         DBG_LOG(WARNING, "The number of physical nodes is greater than the number of memory-controller pci buses.\n");
     }
@@ -164,10 +170,11 @@ int discover_mc_pci_topology(cpu_model_t* cpu_model, physical_node_t* physical_n
                 cpu_model->set_throttle_register(regs_addr[i], THROTTLE_DDR_ACT, 0x800f);
             }
         }
+        
         // measure local bandwidth of each node
         max_local_rbw = 0;
-        for (i=0; i<num_physical_nodes; i++) {
-            physical_node_t* node_i = physical_nodes[i];
+        for (i=0; i<physical_topology->num_nodes; i++) {
+            physical_node_t* node_i = &physical_topology->physical_nodes[i];
             rbw = measure_read_bw(node_i->node_id, node_i->node_id);
             if (rbw > max_local_rbw) {
                 max_local_rbw = rbw;
@@ -177,7 +184,7 @@ int discover_mc_pci_topology(cpu_model_t* cpu_model, physical_node_t* physical_n
         if (local_node) {
             DBG_LOG(DEBUG, "setting node_id %d to bus %X\n", local_node->node_id, regs_addr[b]->addr[0].bus_id);
             local_node->mc_pci_regs = regs_addr[b];
-            if (++count == num_physical_nodes) break;
+            if (++count == physical_topology->num_nodes) break;
         }
     }
 
@@ -248,7 +255,7 @@ static int load_mc_pci_topology(const char* path, physical_node_t* physical_node
 /** 
  * \brief Saves the memory controller pci topology in a file for later reuse
  */
-static int save_mc_pci_topology(const char* path, physical_node_t* physical_nodes[], int num_physical_nodes)
+int save_mc_pci_topology(const char* path, physical_node_t* physical_nodes[], int num_physical_nodes)
 {
     int i, j;
     FILE *fp;
@@ -336,10 +343,8 @@ int partition_cpus(virtual_topology_t* virtual_topology)
  * Constructs a NUMA virtual topology where two physical sockets are fused into a 
  * single virtual node
  */
-int init_virtual_topology(config_t* cfg, cpu_model_t* cpu_model, virtual_topology_t** virtual_topologyp)
+int init_numa_topology(char* physical_nodes_str, int hyperthreading, char* mc_pci_file, cpu_model_t* cpu_model, virtual_topology_t** virtual_topologyp)
 {
-    char* mc_pci_file;
-    char* str;
     char* saveptr = NULL;
     char* token = "NULL";
     int* physical_node_ids;
@@ -350,13 +355,8 @@ int init_virtual_topology(config_t* cfg, cpu_model_t* cpu_model, virtual_topolog
     physical_node_t* node_i, *node_j, *sibling_node;
     int ret;
     int min_distance;
-    int hyperthreading;
     struct bitmask* mem_nodes;
     virtual_topology_t* virtual_topology;
-
-    if (__cconfig_lookup_string(cfg, "topology.physical_nodes", &str) == CONFIG_FALSE) {
-        return E_ERROR;
-    }
 
     DBG_LOG(DEBUG, "Possible NUMA nodes are %d\n", numa_num_possible_nodes());
     DBG_LOG(DEBUG, "NUMA nodes allowed are %lu\n", numa_get_mems_allowed()->size);
@@ -366,9 +366,9 @@ int init_virtual_topology(config_t* cfg, cpu_model_t* cpu_model, virtual_topolog
     physical_node_ids = calloc(numa_num_possible_nodes(), sizeof(*physical_node_ids));
     num_physical_nodes = 0;
 
-    while ((token = strtok_r(str, ",", &saveptr))) {
+    while ((token = strtok_r(physical_nodes_str, ",", &saveptr))) {
         physical_node_ids[num_physical_nodes] = atoi(token);
-        str = NULL;
+        physical_nodes_str = NULL;
         if (++num_physical_nodes > numa_num_possible_nodes()) {
             // we re being asked to run on more nodes than available
             free(physical_node_ids);
@@ -392,7 +392,6 @@ int init_virtual_topology(config_t* cfg, cpu_model_t* cpu_model, virtual_topolog
             physical_nodes[n]->cpu_bitmask = numa_allocate_cpumask();
             physical_nodes[n]->cpu_model = cpu_model;
             numa_node_to_cpus(node_id, physical_nodes[n]->cpu_bitmask);
-            __cconfig_lookup_bool(cfg, "topology.hyperthreading", &hyperthreading);
             if (hyperthreading) {
                 physical_nodes[n]->num_cpus = num_cpus(physical_nodes[n]->cpu_bitmask);
             } else {
@@ -415,11 +414,11 @@ int init_virtual_topology(config_t* cfg, cpu_model_t* cpu_model, virtual_topolog
 
     // If pci bus topology of each physical node is not provided then discover it.
     // The bus topology must be always known even if BW model is disabled.
-    if (__cconfig_lookup_string(cfg, "topology.mc_pci", &mc_pci_file) == CONFIG_FALSE ||
-          (__cconfig_lookup_string(cfg, "topology.mc_pci", &mc_pci_file) == CONFIG_TRUE &&
+    if (mc_pci_file == NULL ||
+          (mc_pci_file &&
           load_mc_pci_topology(mc_pci_file, physical_nodes, num_physical_nodes) != E_SUCCESS))
     {
-        discover_mc_pci_topology(cpu_model, physical_nodes, num_physical_nodes);
+        //discover_mc_pci_topology(cpu_model, physical_nodes, num_physical_nodes);
         save_mc_pci_topology(mc_pci_file, physical_nodes, num_physical_nodes);
         DBG_LOG(INFO, "Topology MC PCI file saved, restart the process\n");
         exit(0);
@@ -493,4 +492,337 @@ int init_virtual_topology(config_t* cfg, cpu_model_t* cpu_model, virtual_topolog
 done:
     free(physical_nodes);
     return ret;
+}
+
+/**
+ * \brief Construct a virtual topology
+ *
+ * Constructs a NUMA virtual topology where two physical sockets are fused into a 
+ * single virtual node
+ */
+int init_virtual_topology(config_t* cfg, cpu_model_t* cpu_model, virtual_topology_t** virtual_topologyp)
+{
+    char* physical_nodes;
+    int   hyperthreading;
+    char* mc_pci_file;
+    
+    if (__cconfig_lookup_string(cfg, "topology.physical_nodes", &physical_nodes) == CONFIG_FALSE) {
+        return E_ERROR;
+    }
+
+
+    __cconfig_lookup_bool(cfg, "topology.hyperthreading", &hyperthreading);
+    if (__cconfig_lookup_string(cfg, "topology.mc_pci", &mc_pci_file) == CONFIG_FALSE) {
+        mc_pci_file = NULL;
+    }
+
+    return init_numa_topology(physical_nodes, hyperthreading, mc_pci_file, cpu_model, virtual_topologyp);
+}
+
+int discover_physical_topology(cpu_model_t* cpu_model, physical_topology_t** physical_topology)
+{
+    int i, j, n;
+    int rc;
+    physical_topology_t* pt;
+
+    if (!(pt = malloc(sizeof(**physical_topology)))) {
+        rc = E_NOMEM;
+        goto err;
+    }
+    
+    pt->num_nodes = numa_num_configured_nodes();
+    if (!(pt->physical_nodes = calloc(pt->num_nodes, sizeof(*pt->physical_nodes)))) {
+        DBG_LOG(ERROR, "Failed physical nodes allocation\n");
+        abort();
+    }
+
+    for (n=0; n<pt->num_nodes; n++) {
+        memset(&pt->physical_nodes[n], 0, sizeof(*pt->physical_nodes));
+        pt->physical_nodes[n].node_id = n;
+        pt->physical_nodes[n].cpu_bitmask = numa_allocate_cpumask();
+        pt->physical_nodes[n].cpu_model = cpu_model;
+        numa_node_to_cpus(n, pt->physical_nodes[n].cpu_bitmask);
+        pt->physical_nodes[n].num_cpus = num_cpus(pt->physical_nodes[n].cpu_bitmask);
+        pt->physical_nodes[n].latencies = calloc(pt->num_nodes, sizeof(*pt->physical_nodes[n].latencies));
+    }    
+
+    if ((rc = discover_mc_pci_topology(cpu_model, pt)) != E_SUCCESS) {
+        goto err;
+    }
+
+    for (i=0; i<pt->num_nodes; i++) {
+        for (j=0; j<pt->num_nodes; j++) {
+            pt->physical_nodes[i].latencies[j] = measure_latency(cpu_model, i, j);
+        }
+    }
+
+    *physical_topology = pt;
+    return E_SUCCESS;
+
+err:
+    return rc;
+}
+
+
+/** 
+ * \brief Physical node topology to XML DOM tree
+ */
+int physical_topology_to_xml_doc(physical_topology_t* physical_topology, xmlDocPtr* doc)
+{
+    physical_node_t* physical_node;
+    xmlTextWriterPtr writer;
+    int rc;
+    int n, k, j;
+
+    writer = xmlNewTextWriterDoc(doc, 0);
+    if (writer == NULL) {
+        DBG_LOG(ERROR, "Error creating the xml writer\n");
+        rc = E_ERROR;
+        goto err;   
+    }
+
+    if ((rc = xmlTextWriterStartDocument(writer, NULL, MY_ENCODING, NULL)) < 0) {
+        DBG_LOG(ERROR, "Error at xmlTextWriterStartDocument\n\n");
+        rc = E_ERROR;
+        goto err;   
+    }
+
+    if ((rc = xmlTextWriterStartElement(writer, BAD_CAST "topology")) < 0) {
+        DBG_LOG(ERROR, "Error at xmlTextWriterStartElement\n");
+        rc = E_ERROR;
+        goto err;   
+    }
+
+    for (n=0; n<physical_topology->num_nodes; n++) {
+        physical_node = &physical_topology->physical_nodes[n];
+        if ((rc = xmlTextWriterStartElement(writer, BAD_CAST "node")) < 0) {
+            DBG_LOG(ERROR, "Error at xmlTextWriterStartElement\n");
+            rc = E_ERROR;
+            goto err;   
+        }
+
+        rc = xmlTextWriterWriteFormatAttribute(writer, BAD_CAST "node_id", "%d", n);
+        if (rc < 0) {
+            DBG_LOG(ERROR, "Error at xmlTextWriterWriteAttribute\n");
+            rc = E_ERROR;
+            goto err;   
+        }
+
+        /* dump memory latencies */
+        if ((rc = xmlTextWriterStartElement(writer, BAD_CAST "mem_latencies")) < 0) {
+            rc = E_ERROR;
+            goto err;
+        }
+        for (k=0; k<physical_topology->num_nodes; k++) {
+            if ((rc = xmlTextWriterStartElement(writer, BAD_CAST "latency")) < 0) {
+                DBG_LOG(ERROR, "Error at xmlTextWriterStartElement\n");
+                rc = E_ERROR;
+                goto err;
+            }
+            if ((rc = xmlTextWriterWriteFormatAttribute(writer, BAD_CAST "node_id", "%d", k)) < 0) {
+                DBG_LOG(ERROR, "Error at xmlTextWriterWriteAttribute\n");
+                rc = E_ERROR;
+                goto err;
+            }
+            if ((rc = xmlTextWriterWriteFormatString(writer, "%d", physical_topology->physical_nodes[n].latencies[k])) < 0) {
+                DBG_LOG(ERROR, "Error at xmlTextWriterWriteFormatString\n");
+                rc = E_ERROR;
+                goto err;
+            }
+            if ((rc = xmlTextWriterEndElement(writer)) < 0) {
+                DBG_LOG(ERROR, "Error at xmlTextWriterEndElement\n");
+                rc = E_ERROR;
+                goto err;
+            }
+        }
+
+        if ((rc = xmlTextWriterEndElement(writer)) < 0) {
+            DBG_LOG(ERROR, "Error at xmlTextWriterEndElement\n");
+            rc = E_ERROR;
+            goto err;
+        }
+
+        /* dump memory channels */ 
+        if ((rc = xmlTextWriterStartElement(writer, BAD_CAST "mem_channels")) < 0) {
+            rc = E_ERROR;
+            goto err;
+        }
+
+        pci_regs_t *regs = physical_node->mc_pci_regs;
+        for (j=0; regs != NULL && j < regs->channels; ++j) {
+            if ((rc = xmlTextWriterWriteFormatElement(writer, BAD_CAST "channel", "%x:%x.%x",
+                        regs->addr[j].bus_id, regs->addr[j].dev_id, regs->addr[j].funct)) < 0) 
+            {
+                DBG_LOG(ERROR, "Error at xmlTextWriterWriteFormatString\n");
+                rc = E_ERROR;
+                goto err;
+            }
+        }
+
+        if ((rc = xmlTextWriterEndElement(writer)) < 0) {
+            DBG_LOG(ERROR, "Error at xmlTextWriterEndElement\n");
+            rc = E_ERROR;
+            goto err;
+        }
+
+        /* end node element */
+        if ((rc = xmlTextWriterEndElement(writer)) < 0) {
+            DBG_LOG(ERROR, "Error at xmlTextWriterEndElement\n");
+            rc = E_ERROR;
+            goto err;
+        }
+    }
+
+    /* end topology element */
+    if ((rc = xmlTextWriterEndElement(writer)) < 0) {
+        DBG_LOG(ERROR, "Error at xmlTextWriterEndElement\n");
+        rc = E_ERROR;
+        goto err;
+    }
+
+    if ((rc = xmlTextWriterEndDocument(writer)) < 0) {
+        DBG_LOG(ERROR, "testXmlwriterDoc: Error at xmlTextWriterEndDocument\n");
+        rc = E_ERROR;
+        goto err;
+    }
+
+    return E_SUCCESS;
+
+err:
+    return rc;
+}
+
+/** 
+ * \brief Physical node topology to XML DOM tree file
+ */
+int physical_topology_to_xml(physical_topology_t* physical_topology, const char* xml_path)
+{
+    xmlDocPtr doc;
+    physical_topology_to_xml_doc(physical_topology, &doc);
+    xmlSaveFormatFileEnc(xml_path, doc, MY_ENCODING, 1);
+    xmlFreeDoc(doc);
+    return E_SUCCESS;
+}
+
+
+void xml_process_mem_channels(xmlNode* root, physical_node_t* pn)
+{
+    int bus_id, dev_id, funct;
+    xmlChar* tmp_xchar;
+    xmlNode* cur_node = NULL;
+    int channel = 0;
+    pci_regs_t* regs = (pci_regs_t*) malloc(sizeof(pci_regs_t));
+    pn->mc_pci_regs = regs;
+
+    for (cur_node = root->children; cur_node; cur_node = cur_node->next) {
+        if (cur_node->type == XML_ELEMENT_NODE) {
+            tmp_xchar = xmlNodeGetContent(cur_node);
+            sscanf((const char*) tmp_xchar, "%x:%x.%x", &bus_id, &dev_id, &funct);
+            regs->addr[channel].bus_id = bus_id; 
+            regs->addr[channel].dev_id = dev_id; 
+            regs->addr[channel].funct = funct;
+            ++channel;
+            regs->channels = channel;
+            xmlFree(tmp_xchar);
+        }
+    }
+}
+
+static void xml_process_mem_latencies(xmlNode* root, physical_topology_t* pt, physical_node_t* pn)
+{
+    xmlChar* tmp_xchar;
+    xmlNode* cur_node = NULL;
+    pn->latencies = calloc(pt->num_nodes, sizeof(*pn->latencies));
+    for (cur_node = root->children; cur_node; cur_node = cur_node->next) {
+        if (cur_node->type == XML_ELEMENT_NODE) {
+            tmp_xchar = xmlGetProp(cur_node, BAD_CAST "node_id");
+            int node_id = atoi((const char*) tmp_xchar);
+            xmlFree(tmp_xchar);
+            tmp_xchar = xmlNodeGetContent(cur_node);
+            pn->latencies[node_id] = atoi((const char*) tmp_xchar);
+            xmlFree(tmp_xchar);
+        }
+    }
+}
+
+static void xml_process_node(xmlNode* root, physical_topology_t* pt)
+{
+    xmlNode *cur_node = NULL;
+    xmlChar* tmp_xchar;
+    tmp_xchar = xmlGetProp(root, BAD_CAST "node_id");
+    int node_id = atoi((const char*) tmp_xchar);
+    xmlFree(tmp_xchar);
+    for (cur_node = root->children; cur_node; cur_node = cur_node->next) {
+        if (cur_node->type == XML_ELEMENT_NODE) {
+            if (xmlStrcmp(BAD_CAST "mem_latencies", cur_node->name) == 0) {
+                xml_process_mem_latencies(cur_node, pt, &pt->physical_nodes[node_id]);
+            }
+            if (xmlStrcmp(BAD_CAST "mem_channels", cur_node->name) == 0) {
+                xml_process_mem_channels(cur_node, &pt->physical_nodes[node_id]);
+            }
+        }
+    }
+
+}
+
+/** 
+ * \brief Loads the physical node topology from an XML file
+ */
+int physical_topology_from_xml(cpu_model_t* cpu_model, const char* xml_path, physical_topology_t** physical_topology)
+{
+    int rc;
+    physical_topology_t* pt;
+
+    xmlDocPtr doc;
+    xmlNode *root_element = NULL;
+    xmlNode *cur_node = NULL;
+    xmlNode *topology_node = NULL;
+
+
+    if (!(pt = malloc(sizeof(**physical_topology)))) {
+        rc = E_NOMEM;
+        goto err;
+    }
+
+    doc = xmlReadFile(xml_path, NULL, 0);
+    root_element = xmlDocGetRootElement(doc);
+    int num_nodes = 0;
+    for (cur_node = root_element; cur_node; cur_node = cur_node->next) {
+        if (cur_node->type == XML_ELEMENT_NODE) {
+            if (xmlStrcmp((const unsigned char*) "topology", cur_node->name) == 0) {
+                topology_node = cur_node->children;
+                /* find number of nodes */
+                for (cur_node = topology_node; cur_node; cur_node = cur_node->next) {
+                    if (cur_node->type == XML_ELEMENT_NODE) {
+                        if (xmlStrcmp(BAD_CAST "node", cur_node->name) == 0) {
+                            num_nodes++;
+                        }
+                    }
+                }
+                pt->num_nodes = num_nodes;
+                if (!(pt->physical_nodes = calloc(pt->num_nodes, sizeof(*pt->physical_nodes)))) {
+                    DBG_LOG(ERROR, "Failed physical nodes allocation\n");
+                    abort();
+                }
+
+                /* process each node */
+                for (cur_node = topology_node; cur_node; cur_node = cur_node->next) {
+                    if (cur_node->type == XML_ELEMENT_NODE) {
+                        if (xmlStrcmp((const unsigned char*) "node", cur_node->name) == 0) {
+                            xml_process_node(cur_node, pt);
+                        }
+                    }
+                }
+
+                break;
+            }
+        }
+    }
+
+    *physical_topology = pt;
+
+    return E_SUCCESS;
+
+err:
+    return rc;
 }

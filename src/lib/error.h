@@ -14,7 +14,7 @@ Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #ifndef __ERROR_H
 #define __ERROR_H
 
-#include "errno.h"
+#include "errorno.h"
 #include "debug.h"
 
 #endif /* __ERROR_H */

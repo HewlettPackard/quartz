@@ -30,7 +30,7 @@ function install_deps_rpm() {
 }
 
 function install_deps_deb() {
-    apt-get install -y libnuma-dev libconfig-dev cmake  msr-tools uthash-dev
+    apt-get install -y libnuma-dev libconfig-dev cmake  msr-tools uthash-dev libxml2-dev
 
     if [ $? -ne 0 ]; then
         echo "Dependencies installation failed"

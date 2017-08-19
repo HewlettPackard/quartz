@@ -1,5 +1,3 @@
-project(nvmemul)
-
 option(STATISTICS "Enable statistics report" ON)
 
 if(STATISTICS)
@@ -10,30 +8,31 @@ else()
 endif()
 
 set(quartzcore_src
+    config.c
+    dev.c
+    debug.c
+    interpose.c
+    measure_bw.c
+    measure_lat.c
+    model_bw.c
+    model_lat.c
+    monotonic_timer.c
+    misc.c
+    stat.c
+    thread.c
     topology.c
 )
 
 set(nvmemul_src
-    config.c
-    debug.c
-    dev.c
     fam_atomic.c
     init.c
-    interpose.c
-    measure_bw.c
-    measure_lat.c
-    misc.c
-    monotonic_timer.c
-    model_bw.c
-    model_lat.c
     pflush.c
     pmalloc.c
     queue.c
-    stat.c
-    thread.c
     process_rank.c
 )
 
+include_directories(${LIBXML_INCLUDE_DIR})
 include_directories(${CMAKE_SOURCE_DIR}/third_party)
 include_directories(${CMAKE_SOURCE_DIR}/include)
 include_directories(${CMAKE_SOURCE_DIR}/src)
@@ -49,11 +48,13 @@ add_definitions(-std=gnu89)
 #add_definitions(-std=c99)
 add_definitions(-msse4)
 add_subdirectory(cpu)
-add_library(quartzcore OBJECT ${quartzcore_src} cpu/cpu.c cpu/pmc.c)
-add_library(nvmemul SHARED ${nvmemul_src} $<TARGET_OBJECTS:quartzcore>)
+add_library(quartzcore SHARED ${quartzcore_src} cpu/cpu.c cpu/pmc.c)
+target_link_libraries(quartzcore config)
+target_link_libraries(quartzcore m)
+target_link_libraries(quartzcore numa)
+target_link_libraries(quartzcore gomp)
+target_link_libraries(quartzcore ${LIBXML_LIBRARY})
+add_library(nvmemul SHARED ${nvmemul_src})
+target_link_libraries(nvmemul quartzcore)
 target_link_libraries(nvmemul dl)
-target_link_libraries(nvmemul config)
-target_link_libraries(nvmemul numa)
 target_link_libraries(nvmemul rt)
-target_link_libraries(nvmemul m)
-target_link_libraries(nvmemul gomp)
