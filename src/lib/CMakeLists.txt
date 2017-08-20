@@ -20,6 +20,7 @@ set(quartzcore_src
     misc.c
     stat.c
     thread.c
+    throttle.c
     topology.c
 )
 

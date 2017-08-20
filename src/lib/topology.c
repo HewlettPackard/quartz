@@ -34,6 +34,7 @@ Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #include "measure.h"
 #include "topology.h"
 #include "model.h"
+#include "throttle.h"
 
 #define MAX_NUM_MC_PCI_BUS 16
 
@@ -554,6 +555,7 @@ int discover_physical_topology(cpu_model_t* cpu_model, physical_topology_t** phy
         for (j=0; j<pt->num_nodes; j++) {
             pt->physical_nodes[i].latencies[j] = measure_latency(cpu_model, i, j);
         }
+        discover_throttle_values(&pt->physical_nodes[i], &pt->physical_nodes[i].bw_throttle);
     }
 
     *physical_topology = pt;
@@ -665,6 +667,12 @@ int physical_topology_to_xml_doc(physical_topology_t* physical_topology, xmlDocP
             goto err;
         }
 
+        /* dump throttle-register-value/bandwidth pairs */
+        if ((rc = bw_throttle_to_xml(writer, physical_node->bw_throttle)) < 0) {
+            rc = E_ERROR;
+            goto err;
+        }
+
         /* end node element */
         if ((rc = xmlTextWriterEndElement(writer)) < 0) {
             DBG_LOG(ERROR, "Error at xmlTextWriterEndElement\n");
@@ -705,7 +713,7 @@ int physical_topology_to_xml(physical_topology_t* physical_topology, const char*
 }
 
 
-void xml_process_mem_channels(xmlNode* root, physical_node_t* pn)
+void mem_channels_from_xml(xmlNode* root, physical_node_t* pn)
 {
     int bus_id, dev_id, funct;
     xmlChar* tmp_xchar;
@@ -728,7 +736,7 @@ void xml_process_mem_channels(xmlNode* root, physical_node_t* pn)
     }
 }
 
-static void xml_process_mem_latencies(xmlNode* root, physical_topology_t* pt, physical_node_t* pn)
+static void mem_latencies_from_xml(xmlNode* root, physical_topology_t* pt, physical_node_t* pn)
 {
     xmlChar* tmp_xchar;
     xmlNode* cur_node = NULL;
@@ -745,7 +753,7 @@ static void xml_process_mem_latencies(xmlNode* root, physical_topology_t* pt, ph
     }
 }
 
-static void xml_process_node(xmlNode* root, physical_topology_t* pt)
+static void physical_node_from_xml(xmlNode* root, physical_topology_t* pt)
 {
     xmlNode *cur_node = NULL;
     xmlChar* tmp_xchar;
@@ -755,14 +763,16 @@ static void xml_process_node(xmlNode* root, physical_topology_t* pt)
     for (cur_node = root->children; cur_node; cur_node = cur_node->next) {
         if (cur_node->type == XML_ELEMENT_NODE) {
             if (xmlStrcmp(BAD_CAST "mem_latencies", cur_node->name) == 0) {
-                xml_process_mem_latencies(cur_node, pt, &pt->physical_nodes[node_id]);
+                mem_latencies_from_xml(cur_node, pt, &pt->physical_nodes[node_id]);
             }
             if (xmlStrcmp(BAD_CAST "mem_channels", cur_node->name) == 0) {
-                xml_process_mem_channels(cur_node, &pt->physical_nodes[node_id]);
+                mem_channels_from_xml(cur_node, &pt->physical_nodes[node_id]);
+            }
+            if (xmlStrcmp(BAD_CAST "mem_bw", cur_node->name) == 0) {
+                bw_throttle_from_xml(cur_node, &pt->physical_nodes[node_id].bw_throttle);
             }
         }
     }
-
 }
 
 /** 
@@ -809,7 +819,7 @@ int physical_topology_from_xml(cpu_model_t* cpu_model, const char* xml_path, phy
                 for (cur_node = topology_node; cur_node; cur_node = cur_node->next) {
                     if (cur_node->type == XML_ELEMENT_NODE) {
                         if (xmlStrcmp((const unsigned char*) "node", cur_node->name) == 0) {
-                            xml_process_node(cur_node, pt);
+                            physical_node_from_xml(cur_node, pt);
                         }
                     }
                 }

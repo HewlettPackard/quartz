@@ -45,7 +45,7 @@ Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 typedef struct {
     int node_id;
     cpu_model_t* cpu_model;
-    pci_regs_t  *mc_pci_regs;
+    pci_regs_t* mc_pci_regs;
     int num_cpus; // number of node's cpus
     struct bitmask* cpu_bitmask; // a bitmask of the node's CPUs 
 
@@ -55,6 +55,7 @@ typedef struct {
     // if nvram then latency is the measured remote latency to the sibling nvram node
     int latency; 
     int* latencies; // latencies to local and remote memory
+    struct bw_throttle_s* bw_throttle; // local memory bandwidth throttle values
 } physical_node_t;
 
 typedef struct virtual_node_s {
@@ -77,6 +78,7 @@ typedef struct virtual_topology_s {
 int init_virtual_topology(config_t* cfg, cpu_model_t* cpu_model, virtual_topology_t** virtual_topologyp);
 int discover_physical_topology(cpu_model_t* cpu_model, physical_topology_t** physical_topology);
 int physical_topology_from_xml(cpu_model_t* cpu_model, const char* xml_path, physical_topology_t** physical_topology);
+int physical_topology_to_xml(physical_topology_t* physical_topology, const char* xml_path);
 int system_num_cpus();
 int first_cpu(struct bitmask* bitmask);
 int next_cpu(struct bitmask* bitmask, int cpu_id);

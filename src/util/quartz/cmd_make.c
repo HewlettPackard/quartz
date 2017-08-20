@@ -102,7 +102,7 @@ void cmd_make(struct argp_state* state)
         printf("wrong model\n");
     }
 
-#if 0
+#if 1
     physical_topology_t* pt;
     discover_physical_topology(cpu, &pt);
     physical_topology_to_xml(pt, "/tmp/test");
