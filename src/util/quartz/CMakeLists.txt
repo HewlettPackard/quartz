@@ -1,5 +1,8 @@
 set(src
-    cmd_make.c
+    cmd_create.c
+    cmd_destroy.c
+    cmd_discover.c
+	common.c
     main.c
 )
 

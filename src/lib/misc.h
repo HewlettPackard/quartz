@@ -14,6 +14,7 @@ Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #ifndef __MISC_H
 #define __MISC_H
 
-size_t string_to_size(char* str);
+size_t string_to_size(const char* str);
+int string_prefix(const char *pre, const char *str);
 
 #endif

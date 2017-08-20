@@ -13,7 +13,9 @@
 #include <sys/types.h>
 #include <sys/mman.h>
 
-void cmd_make(struct argp_state* state);
+extern void cmd_discover(struct argp_state* state);
+extern void cmd_create(struct argp_state* state);
+extern void cmd_destroy(struct argp_state* state);
 
 const char *argp_program_version = "x, version 0.1";
 const char *argp_program_bug_address = "haris.volos@hpe.com";
@@ -42,10 +44,11 @@ static struct argp_option opt_global[] =
 
 static char doc_global[] =
   "\n"
-  "Manage Quartz."
+  "Quartz management utility."
   "\v"
   "Supported commands are:\n"
-  "  make    Create emulation topology.\n"
+  "  discover  Find out machine physical topology.\n"
+  "  create    Create emulation virtual topology.\n"
   ;
 
 static error_t
@@ -68,8 +71,14 @@ parse_global(int key, char* arg, struct argp_state* state)
 
         case ARGP_KEY_ARG:
             assert( arg );
-            if(strcmp(arg, "make") == 0) {
-                cmd_make(state);
+            if(strcmp(arg, "discover") == 0) {
+                cmd_discover(state);
+            } 
+            else if(strcmp(arg, "create") == 0) {
+                cmd_create(state);
+            } 
+            else if(strcmp(arg, "destroy") == 0) {
+                cmd_destroy(state);
             } else {
                 argp_error(state, "%s is not a valid command", arg);
             }

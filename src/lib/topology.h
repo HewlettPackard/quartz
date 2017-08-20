@@ -83,4 +83,7 @@ int system_num_cpus();
 int first_cpu(struct bitmask* bitmask);
 int next_cpu(struct bitmask* bitmask, int cpu_id);
 
+int create_virtual_topology(config_t* cfg);
+int destroy_virtual_topology(config_t* cfg);
+
 #endif /* __TOPOLOGY_H */

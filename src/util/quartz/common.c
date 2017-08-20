@@ -11,40 +11,24 @@ should have received a copy of the GNU General Public License along
 with this program; if not, write to the Free Software Foundation,
 Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 ***************************************************************************/
-#include <ctype.h>
-#include <stddef.h>
+#define _XOPEN_SOURCE
+
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdio.h>
+#include <utmp.h>
+#include "common.h"
 
-size_t string_to_size(const char* str)
+void check_running_as_root()
 {
-    size_t factor = 1;
-    size_t size;
-    long   val;
-    char*  endptr = 0;
+    char euid[L_cuserid];
 
-    val = strtoull(str, &endptr, 10);
-    while(endptr && (endptr - str) < strlen(str) && !isalpha(*endptr)) {endptr++;}
+    cuserid(euid);
 
-    switch (endptr[0]) {
-        case 'K': case 'k':
-            factor = 1024LLU;
-            break;
-        case 'M': case 'm':
-            factor = 1024LLU*1024LLU;
-            break;
-        case 'G': case 'g':
-            factor = 1024LLU*1024LLU*1024LLU;
-            break;
-        default:
-            factor = 1;
+    if (strcmp("root", euid) != 0) {
+        fprintf(stderr, "Must run as root (or sudo).\n");
+        abort;
     }
-    size = factor * val;
-    return size;
 }
 
-int string_prefix(const char *pre, const char *str)
-{
-    return strncmp(pre, str, strlen(pre)) == 0;
-}
+

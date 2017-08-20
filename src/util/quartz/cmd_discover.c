@@ -12,6 +12,8 @@
 #include <sys/time.h>
 #include <sys/types.h>
 #include <sys/mman.h>
+
+#include <libconfig.h>
 #include <libxml/encoding.h>
 #include <libxml/xmlwriter.h>
 
@@ -73,7 +75,7 @@ static struct argp argp_cmd =
 int save_mc_pci_topology(const char* path, physical_node_t* physical_nodes[], int num_physical_nodes);
 int discover_mc_pci_topology(cpu_model_t* cpu_model, physical_node_t* physical_nodes[], int num_physical_nodes);
 
-void cmd_make(struct argp_state* state)
+void cmd_discover(struct argp_state* state)
 {
     struct arg_cmd argd = { 0, 0, 0};
     int    argc = state->argc - state->next + 1;
@@ -82,12 +84,12 @@ void cmd_make(struct argp_state* state)
 
     argd.global = state->input;
 
-    argv[0] = malloc(strlen(state->name) + strlen(" make") + 1);
+    argv[0] = malloc(strlen(state->name) + strlen(" discover") + 1);
 
     if(!argv[0])
         argp_failure(state, 1, ENOMEM, 0);
 
-    sprintf(argv[0], "%s make", state->name);
+    sprintf(argv[0], "%s discover", state->name);
 
     argp_parse(&argp_cmd, argc, argv, ARGP_IN_ORDER, &argc, &argd);
 
@@ -102,22 +104,19 @@ void cmd_make(struct argp_state* state)
         printf("wrong model\n");
     }
 
-#if 1
     physical_topology_t* pt;
     discover_physical_topology(cpu, &pt);
-    physical_topology_to_xml(pt, "/tmp/test");
+    //physical_topology_to_xml(pt, "/tmp/test");
 
-#else
+#if 0
     physical_topology_t* pt;
     physical_topology_from_xml(cpu, "/tmp/test", &pt);
     physical_topology_to_xml(pt, "/tmp/test2");
 #endif
-    return 0;
 
-    if ((cpu = cpu_model()) == NULL) {
-        printf("wrong model\n");
-    }
+    return;
 
+#if 0
     char* physical_nodes_str = "1,2";
 
     physical_node_t** physical_nodes = NULL;
@@ -184,4 +183,5 @@ void cmd_make(struct argp_state* state)
 done:
     free(physical_nodes);
     return;
+#endif
 }

@@ -28,10 +28,6 @@ Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 static void init() __attribute__((constructor));
 static void finalize() __attribute__((destructor));
 
-int set_process_local_rank();
-int unset_process_local_rank();
-int partition_cpus(virtual_topology_t* virtual_topology);
-
 static virtual_topology_t* virtual_topology = NULL;
 
 void finalize() {
@@ -57,8 +53,6 @@ void finalize() {
 #ifdef PAPI_SUPPORT
     pmc_shutdown();
 #endif
-
-    unset_process_local_rank();
 
     //__cconfig_destroy(&cfg);
 }
@@ -107,14 +101,6 @@ int init_pmem_model(config_t* cfg)
         // statistics makes use of the thread manager and is used by the register_self()
         stats_enable(cfg);
 #endif
-
-        set_process_local_rank();
-
-        // thread manager must be initialized and local rank set
-        // CPU partitioning must be made before the first thread is registered
-        if (partition_cpus(virtual_topology) != E_SUCCESS) {
-            goto error;
-        }
 
         if (register_self() != E_SUCCESS) {
             goto error;
