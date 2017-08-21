@@ -17,4 +17,21 @@ Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #include "errorno.h"
 #include "debug.h"
 
+
+#define CHECK_ERROR_CODE(x) do { \
+  int retval = (x); \
+  if (retval != 0) { \
+    fprintf(stderr, "Runtime error: %s returned %d at %s:%d", #x, retval, __FILE__, __LINE__); \
+    return retval; \
+  } \
+} while (0)
+
+#define CHECK_ERROR_CODE2(x, y) do { \
+  int retval = (x); \
+  if (retval != 0) { \
+    fprintf(stderr, "Runtime error: %s returned %d at %s:%d", #x, retval, __FILE__, __LINE__); \
+    y; \
+  } \
+} while (0)
+
 #endif /* __ERROR_H */

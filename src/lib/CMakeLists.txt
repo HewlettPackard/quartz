@@ -11,6 +11,7 @@ set(quartzcore_src
     config.c
     dev.c
     debug.c
+    graph.c
     interpose.c
     measure_bw.c
     measure_lat.c

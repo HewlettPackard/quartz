@@ -15,6 +15,9 @@ Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #define __TOPOLOGY_H
 
 #include <numa.h>
+#include <uthash.h>
+#include <utlist.h>
+
 #include "config.h"
 #include "cpu/cpu.h"
 #include "dev.h"
@@ -58,21 +61,50 @@ typedef struct {
     struct bw_throttle_s* bw_throttle; // local memory bandwidth throttle values
 } physical_node_t;
 
-typedef struct virtual_node_s {
-    int node_id;
-    physical_node_t* dram_node;
-    physical_node_t* nvram_node;
-    //cpu_model_t* cpu_model;
-} virtual_node_t;
-
 typedef struct physical_topology_s {
     physical_node_t* physical_nodes; // pointer to an array of physical nodes
     int num_nodes;
 } physical_topology_t;
 
+typedef struct virtual_nvm_s {
+    const char* name;
+    int id;
+    physical_node_t* nvram_node;
+} virtual_nvm_t;
+
+typedef struct virtual_node_s {
+    const char* name;
+    int id;
+    int node_id;
+    physical_node_t* dram_node;
+    physical_node_t* nvram_node;
+    //cpu_model_t* cpu_model;
+    virtual_nvm_t* nvm;
+} virtual_node_t;
+
+struct virtual_topology_element_s {
+    const char* name;
+    int type;
+    int id;
+    void* element;
+
+    /** Number of dependent elements depending on this element */
+    int dep_count; 
+
+    /** Array of dependent elements depending on this element */
+    struct virtual_topology_element_s** dep; 
+
+    config_setting_t* cfg;
+    UT_hash_handle hh;
+};
+
+typedef struct virtual_topology_element_s virtual_topology_element_t;
+
 typedef struct virtual_topology_s {
     virtual_node_t* virtual_nodes; // pointer to an array of virtual nodes
     int num_virtual_nodes;
+    struct virtual_topology_element_s* elements;
+    int num_elements;
 } virtual_topology_t;
 
 int init_virtual_topology(config_t* cfg, cpu_model_t* cpu_model, virtual_topology_t** virtual_topologyp);

@@ -1,6 +1,14 @@
 include_directories(${CMAKE_SOURCE_DIR}/third_party/gtest-1.7.0/include)
 include_directories(${CMAKE_SOURCE_DIR}/src/lib)
 
+function (add_c_test targetname)
+  add_executable(${targetname} ${CMAKE_CURRENT_SOURCE_DIR}/${targetname}.c)
+  target_link_libraries(${targetname} quartzcore)
+  add_test(NAME ${targetname} COMMAND ${CMAKE_CURRENT_BINARY_DIR}/${targetname})
+endfunction()
+
+add_c_test(test_graph)
+
 add_definitions(-g)
 add_definitions(-Wall)
 #add_definitions(-DNDEBUG)
