@@ -66,56 +66,81 @@ typedef struct physical_topology_s {
     int num_nodes;
 } physical_topology_t;
 
-typedef struct virtual_nvm_s {
+struct virtual_nvm_s {
     const char* name;
-    int id;
-    physical_node_t* nvram_node;
-} virtual_nvm_t;
+    int nvm_id;
+    size_t size;
+    int membind;
+    const char* mountpath;
+    physical_node_t* nvm_node;
+};
 
 typedef struct virtual_node_s {
     const char* name;
-    int id;
     int node_id;
+    int cpunodebind;
+    int membind;
     physical_node_t* dram_node;
     physical_node_t* nvram_node;
     //cpu_model_t* cpu_model;
-    virtual_nvm_t* nvm;
+    struct virtual_nvm_s* nvm;
 } virtual_node_t;
 
 struct virtual_topology_element_s {
     const char* name;
-    int type;
     int id;
     void* element;
 
-    /** Number of dependent elements depending on this element */
+    /** Number of elements this element depends on */
     int dep_count; 
 
-    /** Array of dependent elements depending on this element */
+    /** Array of elements this element depends on */
     struct virtual_topology_element_s** dep; 
 
     config_setting_t* cfg;
+
+    /** Virtual topology */
+    struct virtual_topology_s* vt;
+
     UT_hash_handle hh;
 };
 
-typedef struct virtual_topology_element_s virtual_topology_element_t;
+struct virtual_topology_s {
+    /** Physical topology this virtual topology builds on */
+    struct physical_topology_s* pt;
 
-typedef struct virtual_topology_s {
-    virtual_node_t* virtual_nodes; // pointer to an array of virtual nodes
-    int num_virtual_nodes;
-    struct virtual_topology_element_s* elements;
+    /** Number of elements */
     int num_elements;
-} virtual_topology_t;
+
+    /** Elements hash table indexed by element name */
+    struct virtual_topology_element_s* elements_ht; 
+
+    /** Elements array table indexed by element id */
+    struct virtual_topology_element_s** elements_ar;
+    int num_virtual_nodes;
+    struct virtual_node_s* virtual_nodes; // pointer to an array of virtual nodes
+};
+
+typedef struct virtual_nvm_s virtual_nvm_t;
+typedef struct virtual_topology_element_s virtual_topology_element_t;
+typedef struct virtual_topology_s virtual_topology_t;
 
 int init_virtual_topology(config_t* cfg, cpu_model_t* cpu_model, virtual_topology_t** virtual_topologyp);
 int discover_physical_topology(cpu_model_t* cpu_model, physical_topology_t** physical_topology);
 int physical_topology_from_xml(cpu_model_t* cpu_model, const char* xml_path, physical_topology_t** physical_topology);
 int physical_topology_to_xml(physical_topology_t* physical_topology, const char* xml_path);
+int load_physical_topology(config_t* cfg, physical_topology_t** physical_topology);
+int discover_and_save_physical_topology(const char* filename);
 int system_num_cpus();
 int first_cpu(struct bitmask* bitmask);
 int next_cpu(struct bitmask* bitmask, int cpu_id);
 
-int create_virtual_topology(config_t* cfg);
-int destroy_virtual_topology(config_t* cfg);
+int create_virtual_topology(config_t* cfg, physical_topology_t* pt, virtual_topology_t** vtp);
+int destroy_virtual_topology(virtual_topology_t* vt);
+void crawl_virtual_topology(
+    virtual_topology_t* vt, 
+    void (*node_cb)(virtual_topology_element_t* vte), 
+    void (*nvm_cb)(virtual_topology_element_t* vte));
+
 
 #endif /* __TOPOLOGY_H */

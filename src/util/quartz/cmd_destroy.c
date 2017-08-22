@@ -9,9 +9,10 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <attr/xattr.h>
+#include <sys/mman.h>
+#include <sys/mount.h>
 #include <sys/time.h>
 #include <sys/types.h>
-#include <sys/mman.h>
 
 #include <libconfig.h>
 #include <libxml/encoding.h>
@@ -77,6 +78,22 @@ static struct argp argp_cmd =
     doc_cmd
 };
 
+static void destroy_nvm(virtual_topology_element_t* vte)
+{
+    assert(vte);
+    assert(vte->element);
+
+    virtual_nvm_t* v_nvm = vte->element;
+
+    const char* path = v_nvm->mountpath;
+    size_t size = v_nvm->size;
+    int membind = v_nvm->membind;
+
+    DBG_LOG(INFO, "Destroy nvm %s size %zu membind %d\n", path, size, membind);
+
+    umount(path);
+}
+
 void cmd_destroy(struct argp_state* state)
 {
     struct arg_cmd argd = { 0, 0, 0};
@@ -117,12 +134,13 @@ void cmd_destroy(struct argp_state* state)
         return;
     }
 
-    cpu_model_t* cpu;
-    if ((cpu = cpu_model()) == NULL) {
-        printf("wrong model\n");
-    }
+    physical_topology_t* pt;
+    virtual_topology_t* vt;
 
-    destroy_virtual_topology(&cfg);    
+    load_physical_topology(&cfg, &pt);
+    create_virtual_topology(&cfg, pt, &vt);
+    crawl_virtual_topology(vt, NULL, destroy_nvm);
+    destroy_virtual_topology(vt);
 
     return;
 }

@@ -23,7 +23,6 @@ Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #include <unistd.h>
 #include <fcntl.h>
 #include <limits.h>
-#include <sys/mount.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 
@@ -445,7 +444,7 @@ static void mem_latencies_from_xml(xmlNode* root, physical_topology_t* pt, physi
     }
 }
 
-static void physical_node_from_xml(xmlNode* root, physical_topology_t* pt)
+static void physical_node_from_xml(xmlNode* root, cpu_model_t* cpu_model, physical_topology_t* pt)
 {
     xmlNode *cur_node = NULL;
     xmlChar* tmp_xchar;
@@ -519,7 +518,7 @@ int physical_topology_from_xml(cpu_model_t* cpu_model, const char* xml_path, phy
                 for (cur_node = topology_node; cur_node; cur_node = cur_node->next) {
                     if (cur_node->type == XML_ELEMENT_NODE) {
                         if (xmlStrcmp((const unsigned char*) "node", cur_node->name) == 0) {
-                            physical_node_from_xml(cur_node, pt);
+                            physical_node_from_xml(cur_node, cpu_model, pt);
                         }
                     }
                 }
@@ -536,6 +535,49 @@ int physical_topology_from_xml(cpu_model_t* cpu_model, const char* xml_path, phy
 err:
     return rc;
 }
+
+static const char* physical_topology_filename(config_t* cfg)
+{
+    const char* filename;
+
+    if (config_lookup_string(cfg, "general.physical_topology", 
+            &filename) == CONFIG_FALSE) 
+    {
+        return NULL;
+    }
+
+    return filename;
+}
+
+int load_physical_topology(config_t* cfg, physical_topology_t** physical_topology)
+{
+    const char* pt_filename;
+    cpu_model_t* cpu;
+
+    if (!(pt_filename = physical_topology_filename(cfg))) {
+        return E_ERROR;
+    }
+    if ((cpu = cpu_model()) == NULL) {
+        return E_ERROR;
+    }
+
+    physical_topology_from_xml(cpu, pt_filename, physical_topology);
+
+    return E_SUCCESS;
+}
+
+int discover_and_save_physical_topology(const char* filename)
+{
+    physical_topology_t* pt;
+    cpu_model_t* cpu;
+
+    if ((cpu = cpu_model()) == NULL) {
+        return E_ERROR;
+    }
+    discover_physical_topology(cpu, &pt);
+    return physical_topology_to_xml(pt, filename);
+}
+
 
 /**
  * \brief Construct a virtual topology
@@ -696,88 +738,97 @@ done:
     return 0;
 }
 
-int mount_tmpfs(const char* path, size_t size, int membind)
-{
-    int rc;
-    char options[512];
-
-    DBG_LOG(INFO, "Mount tmpfs %s size %zu membind %d\n", path, size, membind);
- 
-    snprintf(options, 512, "size=%zu,mpol=bind:%d", size, membind);
-   
-    if (!(rc = mount("tmpfs", path, "tmpfs", 0, options))) {
-        return E_ERROR;
-    }
-
-    return E_SUCCESS; 
-}
-
-int create_nvm(physical_topology_t* pt, int id, const char* path, size_t size, int membind)
-{
-    DBG_LOG(INFO, "Create nvm %s size %zu membind %d\n", path, size, membind);
-
-    if (!mkdir(path, S_IRWXU)) {
-        return E_ERROR;
-    }
-
-    return mount_tmpfs(path, size, membind);
-}
-
-int destroy_nvm(physical_topology_t* pt, int id, const char* path, size_t size, int membind)
-{
-    DBG_LOG(INFO, "Create nvm %s size %zu membind %d\n", path, size, membind);
- 
-    umount(path);
-
-    return E_SUCCESS;
-}
-
-#if 0
-virtual_node_t* create_virtual_node(physical_topology_
-{
-
-}
-
-virtual_nvm_t* create_virtual_nvm(virtual_topology_t* vt, config_setting_t* element)
-{
-
-}
-#endif
-
     
-void print(graph_t* g, int source, int sink, void* data)
-{
-    printf("%d %d\n", source, sink);
-}
-
-int crawl_virtual_topology(virtual_topology_t* vt)
+void crawl_virtual_topology(
+    virtual_topology_t* vt,
+    void (*node_cb)(virtual_topology_element_t* vte),
+    void (*nvm_cb)(virtual_topology_element_t* vte))
 {
     virtual_topology_element_t* cur_vte;
     virtual_topology_element_t* tmp;
 
     graph_t* g = graph_create(vt->num_elements);
 
-    HASH_ITER(hh, vt->elements, cur_vte, tmp) {
+    HASH_ITER(hh, vt->elements_ht, cur_vte, tmp) {
         int i;
         for (i = 0; i < cur_vte->dep_count; i++) {
-            graph_add_edge(g, cur_vte->id, cur_vte->dep[i]->id);
+            graph_add_edge(g, cur_vte->dep[i]->id, cur_vte->id);
         }
     }
 
-//    HASH_ITER(hh, vt->elements, cur_vte, tmp) {
-//        graph_foreach(g, cur_vte->id, print, NULL);
-//    }
-
     int* topo_sort = graph_topo_sort(g);
+    int i;
+    for (i = 0; i < graph_vertex_count(g); i++) {
+        int v = topo_sort[i];
+        virtual_topology_element_t* vte = vt->elements_ar[v];
+        if (node_cb && string_prefix("node", vte->name)) {
+            node_cb(vte);
+            continue;
+        }
+        if (nvm_cb && string_prefix("nvm", vte->name)) {
+            nvm_cb(vte);
+            continue;
+        }
+    }
+}
 
+static void create_virtual_node(virtual_topology_element_t* vte)
+{
+    int id;
+    int cpunodebind;
+    int membind;
+    const char* nvmbind;
+    if (!(config_setting_lookup_int(vte->cfg, "cpunodebind", &cpunodebind) &&
+          config_setting_lookup_int(vte->cfg, "membind", &membind) &&
+          config_setting_lookup_string(vte->cfg, "nvmbind", &nvmbind)))
+    {
+        return;
+    }
+    sscanf(vte->name, "node%d", &id);
+
+    virtual_topology_element_t* vte_nvm;
+    HASH_FIND_STR(vte->vt->elements_ht, nvmbind, vte_nvm);
+
+    virtual_node_t* v_node = malloc(sizeof(*v_node));
+    v_node->name = vte->name;
+    v_node->node_id = id;
+    v_node->cpunodebind = cpunodebind;
+    v_node->membind = membind;
+    v_node->nvm = (virtual_nvm_t*) vte_nvm->element;
+    v_node->dram_node = &vte->vt->pt->physical_nodes[membind];
+    vte->element = v_node;
+
+    return;
+}
+
+static void create_virtual_nvm(virtual_topology_element_t* vte)
+{
+    int id;
+    const char* mountpath;
+    const char* sizestr;
+    int membind;
+    if (!(config_setting_lookup_string(vte->cfg, "mount", &mountpath) &&
+          config_setting_lookup_string(vte->cfg, "size", &sizestr) &&
+          config_setting_lookup_int(vte->cfg, "membind", &membind)))
+    {
+        return;
+    }
+    sscanf(vte->name, "nvm%d", &id);
+
+    virtual_nvm_t* v_nvm = malloc(sizeof(*v_nvm));
+    v_nvm->name = vte->name;
+    v_nvm->nvm_id = id;
+    v_nvm->size = string_to_size(sizestr);
+    v_nvm->mountpath = mountpath;
+    v_nvm->membind = membind;
+    v_nvm->nvm_node = &vte->vt->pt->physical_nodes[membind];
+    vte->element = v_nvm;
+
+    return;
 }
 
 
-int crawl_virtual_topology_config(
-    config_t* cfg, 
-    physical_topology_t* pt,
-    int (*node_cb)(physical_topology_t* pt, int id, int cpunodebind, int membind, int nvmbind),
-    int (*nvm_cb)(physical_topology_t* pt, int id, const char* path, size_t size, int membind))
+int create_virtual_topology(config_t* cfg, physical_topology_t* pt, virtual_topology_t** vtp)
 {
     config_setting_t* root;
     config_setting_t* setting;
@@ -787,12 +838,15 @@ int crawl_virtual_topology_config(
 
     virtual_topology_t* vt = malloc(sizeof(virtual_topology_t));
 
+    vt->pt = pt;
+
     if (setting != NULL) {
         int i;
 
-        /* create all virtual topology element objects */
+        /* create all virtual topology element place-holder objects */
         vt->num_elements = config_setting_length(setting);
-        vt->elements = NULL;
+        vt->elements_ht = NULL;
+        vt->elements_ar = calloc(vt->num_elements, sizeof(*vt->elements_ar));
         for (i = 0; i < vt->num_elements; ++i) {
             config_setting_t *element = config_setting_get_elem(setting, i);
             virtual_topology_element_t* vte = malloc(sizeof(virtual_topology_element_t));
@@ -801,7 +855,9 @@ int crawl_virtual_topology_config(
             vte->cfg = element;
             vte->dep_count = 0;
             vte->dep = NULL;
-            HASH_ADD_STR(vt->elements, name, vte);
+            vte->vt = vt;
+            vt->elements_ar[i] = vte;
+            HASH_ADD_STR(vt->elements_ht, name, vte);
         }
  
         /* add dependencies between virtual topology element objects */
@@ -810,84 +866,35 @@ int crawl_virtual_topology_config(
             int key_count = config_setting_length(element);
             int j;
             virtual_topology_element_t* cur_vte;
-            HASH_FIND_STR(vt->elements, element->name, cur_vte);
+            HASH_FIND_STR(vt->elements_ht, element->name, cur_vte);
             assert(cur_vte);
             for (j = 0; j < key_count; j++) {
                 config_setting_t *key = config_setting_get_elem(element, j);
                 if (key->type == CONFIG_TYPE_STRING) {
                     virtual_topology_element_t* vte;
                     const char* val = config_setting_get_string(key);
-                    HASH_FIND_STR(vt->elements, val, vte);
+                    HASH_FIND_STR(vt->elements_ht, val, vte);
                     if (vte) {
-                        vte->dep = realloc(vte->dep, sizeof(*vte->dep) * (vte->dep_count+1));
-                        vte->dep[vte->dep_count++] = cur_vte;
+                        cur_vte->dep = realloc(cur_vte->dep, sizeof(*cur_vte->dep) * (cur_vte->dep_count+1));
+                        cur_vte->dep[cur_vte->dep_count++] = vte;
                     }
                 }
             }
         }
 
-        crawl_virtual_topology(vt);
-
-
-#if 0
-        for (i = 0; i < count; ++i) {
-            config_setting_t *element = config_setting_get_elem(setting, i);
-            if (string_prefix("node", element->name)) {
-                int id;
-                int cpunodebind;
-                int membind;
-                int nvmbind;
-                if (!(config_setting_lookup_int(element, "cpunodebind", &cpunodebind) &&
-                      config_setting_lookup_int(element, "membind", &membind) &&
-                      config_setting_lookup_int(element, "nvmbind", &nvmbind)))
-                {
-                    continue;
-                }
-                create_virtual_node(element->name, cpunodebind, membind, nvmbind);
-
-                sscanf(element->name, "nvm%d", &id);
-                if (node_cb) {
-                    node_cb(pt, id, cpunodebind, membind, nvmbind);
-                }
-            }
-            if (string_prefix("nvm", element->name)) {
-                int id=5;
-                const char* mountpath;
-                const char* sizestr;
-                int membind;
-                if (!(config_setting_lookup_string(element, "mount", &mountpath) &&
-                      config_setting_lookup_string(element, "size", &sizestr) &&
-                      config_setting_lookup_int(element, "membind", &membind)))
-                {
-                    continue;
-                }
-                size_t size = string_to_size(sizestr);
-                sscanf(element->name, "nvm%d", &id);
-                if (nvm_cb) {
-                    nvm_cb(id, mountpath, size, membind);
-                }
-            }
-
-        }
-#endif
+        /* create all virtual topology element objects */
+        crawl_virtual_topology(vt, create_virtual_node, create_virtual_nvm);
     }
-    
+
+    *vtp = vt;    
+
     return E_SUCCESS; 
 }
 
-int create_virtual_topology(config_t* cfg)
+int destroy_virtual_topology(virtual_topology_t* vt)
 {
-    crawl_virtual_topology_config(cfg, NULL, NULL, create_nvm);
-}
-
-int destroy_virtual_topology(config_t* cfg)
-{
-    crawl_virtual_topology_config(cfg, NULL, NULL, destroy_nvm);
-}
-
-int init_virtual_node(physical_topology_t* pt, int id, int cpunodebind, int membind, int nvmbind)
-{
-
+    // TODO: deallocate memory associated with all virtual topology objects
+    return E_SUCCESS;
 }
 
 /**
@@ -898,7 +905,7 @@ int init_virtual_topology(config_t* cfg, cpu_model_t* cpu_model, virtual_topolog
 {
     int rc;
     physical_topology_t* pt;
-    const char* physical_topology_filename;
+    char* physical_topology_filename;
 
     if (__cconfig_lookup_string(cfg, "general.physical_topology", 
             &physical_topology_filename) == CONFIG_FALSE) 

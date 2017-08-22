@@ -27,7 +27,7 @@ void check_running_as_root()
 
     if (strcmp("root", euid) != 0) {
         fprintf(stderr, "Must run as root (or sudo).\n");
-        abort;
+        exit(1);
     }
 }
 

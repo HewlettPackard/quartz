@@ -12,9 +12,11 @@
 #include <unistd.h>
 #include <utmp.h>
 #include <attr/xattr.h>
+#include <sys/mman.h>
+#include <sys/mount.h>
+#include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/types.h>
-#include <sys/mman.h>
 
 #include <libconfig.h>
 #include <libxml/encoding.h>
@@ -58,9 +60,6 @@ parse_cmd(int key, char* arg, struct argp_state* state)
 
     switch(key)
     {
-        case 'c':
-            argd->virtual_topo_cfg_filename = arg;
-            break;
         case ARGP_KEY_ARG:
             argd->virtual_topo_cfg_filename = arg;
             break;
@@ -79,6 +78,43 @@ static struct argp argp_cmd =
     "FILE",
     doc_cmd
 };
+
+static int mount_tmpfs(const char* path, size_t size, int membind)
+{
+    int rc;
+    char options[512];
+
+    DBG_LOG(INFO, "Mount tmpfs %s size %zu membind %d\n", path, size, membind);
+ 
+    snprintf(options, 512, "size=%zu,mpol=bind:%d", size, membind);
+   
+    if (!(rc = mount("tmpfs", path, "tmpfs", 0, options))) {
+        return E_ERROR;
+    }
+
+    return E_SUCCESS; 
+}
+
+static void create_nvm(virtual_topology_element_t* vte)
+{
+    assert(vte);
+    assert(vte->element);
+
+    virtual_nvm_t* v_nvm = vte->element;
+
+    const char* path = v_nvm->mountpath;
+    size_t size = v_nvm->size;
+    int membind = v_nvm->membind;
+
+    DBG_LOG(INFO, "Create nvm %s size %zu membind %d\n", path, size, membind);
+
+    if (!mkdir(path, S_IRWXU)) {
+        DBG_LOG(ERROR, "%s\n", strerror(errno));
+        return;
+    }
+
+    mount_tmpfs(path, size, membind);
+}
 
 void cmd_create(struct argp_state* state)
 {
@@ -120,12 +156,13 @@ void cmd_create(struct argp_state* state)
         return;
     }
 
-    cpu_model_t* cpu;
-    if ((cpu = cpu_model()) == NULL) {
-        printf("wrong model\n");
-    }
+    physical_topology_t* pt;
+    virtual_topology_t* vt;
 
-    create_virtual_topology(&cfg);    
+    load_physical_topology(&cfg, &pt);
+    create_virtual_topology(&cfg, pt, &vt);
+    crawl_virtual_topology(vt, NULL, create_nvm);
+    destroy_virtual_topology(vt);
 
     return;
 }
