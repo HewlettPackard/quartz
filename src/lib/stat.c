@@ -29,9 +29,9 @@ hrtime_t cycles_to_us(int cpu_speed_mhz, hrtime_t cycles);
 void stats_set_init_time(double init_time_us) {
 	thread_manager_t* thread_manager = get_thread_manager();
 
-	__lib_pthread_mutex_lock(&thread_manager->mutex);
+	libpthread_pthread_mutex_lock(&thread_manager->mutex);
 	thread_manager->stats.init_time_us = init_time_us;
-	__lib_pthread_mutex_unlock(&thread_manager->mutex);
+	libpthread_pthread_mutex_unlock(&thread_manager->mutex);
 }
 
 void stats_enable(config_t *cfg) {
@@ -39,9 +39,9 @@ void stats_enable(config_t *cfg) {
 
     __cconfig_lookup_bool(cfg, "statistics.enable", &thread_manager->stats.enabled);
     if (__cconfig_lookup_string(cfg, "statistics.file", &thread_manager->stats.output_file) == CONFIG_FALSE) {
-    	__lib_pthread_mutex_lock(&thread_manager->mutex);
+    	libpthread_pthread_mutex_lock(&thread_manager->mutex);
     	thread_manager->stats.output_file = NULL;
-    	__lib_pthread_mutex_unlock(&thread_manager->mutex);
+    	libpthread_pthread_mutex_unlock(&thread_manager->mutex);
     }
 }
 
@@ -124,11 +124,11 @@ void stats_report() {
         out_file = stdout;
     }
 
-    __lib_pthread_mutex_lock(&thread_manager->mutex);
+    libpthread_pthread_mutex_lock(&thread_manager->mutex);
     LL_FOREACH(thread_manager->thread_list, thread) {
         running_threads++;
     }
-    __lib_pthread_mutex_unlock(&thread_manager->mutex);
+    libpthread_pthread_mutex_unlock(&thread_manager->mutex);
 
     fprintf(out_file, "\n\n===== STATISTICS (%s) =====\n\n", get_current_time());
     if (!latency_model.inject_delay) {
@@ -143,19 +143,19 @@ void stats_report() {
 
     fprintf(out_file, "== Running threads == \n");
 
-    __lib_pthread_mutex_lock(&thread_manager->mutex);
+    libpthread_pthread_mutex_lock(&thread_manager->mutex);
     LL_FOREACH(thread_manager->thread_list, thread) {
     	show_thread_stats(thread, out_file);
     }
-    __lib_pthread_mutex_unlock(&thread_manager->mutex);
+    libpthread_pthread_mutex_unlock(&thread_manager->mutex);
 
     fprintf(out_file, "\n== Terminated threads == \n");
 
-    __lib_pthread_mutex_lock(&thread_manager->mutex);
+    libpthread_pthread_mutex_lock(&thread_manager->mutex);
     LL_FOREACH(thread_manager->stats.thread_list, thread) {
     	show_thread_stats(thread, out_file);
     }
-    __lib_pthread_mutex_unlock(&thread_manager->mutex);
+    libpthread_pthread_mutex_unlock(&thread_manager->mutex);
 
     if (out_file != stdout) {
         fclose(out_file);

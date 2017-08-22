@@ -578,167 +578,6 @@ int discover_and_save_physical_topology(const char* filename)
     return physical_topology_to_xml(pt, filename);
 }
 
-
-/**
- * \brief Construct a virtual topology
- *
- * Constructs a NUMA virtual topology where two physical sockets are fused into a 
- * single virtual node
- */
-int init_numa_topology(char* physical_nodes_str, int hyperthreading, char* mc_pci_file, cpu_model_t* cpu_model, virtual_topology_t** virtual_topologyp)
-{
-#if 0
-    char* saveptr = NULL;
-    char* token = "NULL";
-    int* physical_node_ids;
-    physical_node_t** physical_nodes = NULL;
-    int num_physical_nodes;
-    int n, v, i, j, sibling_idx;
-    int node_id;
-    physical_node_t* node_i, *node_j, *sibling_node;
-    int ret;
-    int min_distance;
-    struct bitmask* mem_nodes;
-    virtual_topology_t* virtual_topology;
-
-    DBG_LOG(DEBUG, "Possible NUMA nodes are %d\n", numa_num_possible_nodes());
-    DBG_LOG(DEBUG, "NUMA nodes allowed are %lu\n", numa_get_mems_allowed()->size);
-    DBG_LOG(DEBUG, "NUMA configured CPUs are %d\n", numa_num_configured_cpus());
-
-    // parse the physical nodes string
-    physical_node_ids = calloc(numa_num_possible_nodes(), sizeof(*physical_node_ids));
-    num_physical_nodes = 0;
-
-    while ((token = strtok_r(physical_nodes_str, ",", &saveptr))) {
-        physical_node_ids[num_physical_nodes] = atoi(token);
-        physical_nodes_str = NULL;
-        if (++num_physical_nodes > numa_num_possible_nodes()) {
-            // we re being asked to run on more nodes than available
-            free(physical_node_ids);
-            ret = E_ERROR;
-            goto done;
-        }
-    }
-    if (!(physical_nodes = calloc(num_physical_nodes, sizeof(*physical_nodes)))) {
-        DBG_LOG(ERROR, "Failed physical nodes allocation\n");
-        abort();
-    }
-
-    // select those nodes we can run on (e.g. not constrained by any numactl)
-    mem_nodes = numa_get_mems_allowed();
-    for (i=0, n=0; i<num_physical_nodes; i++) {
-        node_id = physical_node_ids[i];
-        if (numa_bitmask_isbitset(mem_nodes, node_id)) {
-            physical_nodes[n] = malloc(sizeof(**physical_nodes));
-            memset(physical_nodes[n], 0, sizeof(**physical_nodes));
-            physical_nodes[n]->node_id = node_id;
-            physical_nodes[n]->cpu_bitmask = numa_allocate_cpumask();
-            physical_nodes[n]->cpu_model = cpu_model;
-            numa_node_to_cpus(node_id, physical_nodes[n]->cpu_bitmask);
-            if (hyperthreading) {
-                physical_nodes[n]->num_cpus = num_cpus(physical_nodes[n]->cpu_bitmask);
-            } else {
-                DBG_LOG(INFO, "Not using hyperthreading.\n");
-                // disable the upper half of the processors in the bitmask
-                physical_nodes[n]->num_cpus = num_cpus(physical_nodes[n]->cpu_bitmask) / 2;
-                int fc = first_cpu(physical_nodes[n]->cpu_bitmask);
-                for (j=fc+system_num_cpus()/2; j<fc+system_num_cpus()/2+physical_nodes[n]->num_cpus; j++) {
-                    if (numa_bitmask_isbitset(physical_nodes[n]->cpu_bitmask, j)) {
-                        numa_bitmask_clearbit(physical_nodes[n]->cpu_bitmask, j);
-                    }
-                }
-            }
-            DBG_LOG(INFO, "%d CPUs on physical node %d\n", physical_nodes[n]->num_cpus, n);
-            n++;
-        }
-    }
-    free(physical_node_ids);
-    num_physical_nodes = n;
-
-    // If pci bus topology of each physical node is not provided then discover it.
-    // The bus topology must be always known even if BW model is disabled.
-    if (mc_pci_file == NULL ||
-          (mc_pci_file &&
-          load_mc_pci_topology(mc_pci_file, physical_nodes, num_physical_nodes) != E_SUCCESS))
-    {
-        //discover_mc_pci_topology(cpu_model, physical_nodes, num_physical_nodes);
-        save_mc_pci_topology(mc_pci_file, physical_nodes, num_physical_nodes);
-        DBG_LOG(INFO, "Topology MC PCI file saved, restart the process\n");
-        exit(0);
-    }
-
-    // form virtual nodes by grouping physical nodes that are close to each other
-    virtual_topology = malloc(sizeof(*virtual_topology));
-    virtual_topology->num_virtual_nodes = num_physical_nodes / 2 + num_physical_nodes % 2;
-    virtual_topology->virtual_nodes = calloc(virtual_topology->num_virtual_nodes, 
-                                             sizeof(*(virtual_topology->virtual_nodes)));
-
-    DBG_LOG(INFO, "Number of physical nodes %d\n", num_physical_nodes);
-    DBG_LOG(INFO, "Number of virtual nodes %d\n", virtual_topology->num_virtual_nodes);
-
-    for (i=0, v=0; i<num_physical_nodes; i++) {
-        min_distance = INT_MAX;
-        sibling_node = NULL;
-        sibling_idx = -1;
-        if ((node_i = physical_nodes[i]) == NULL) {
-            continue;
-        }
-
-        for (j=i+1; j<num_physical_nodes; j++) {
-            if ((node_j = physical_nodes[j]) == NULL) {
-                continue;
-            }
-            // TODO: numa_distance() returns '0' on error
-            if (numa_distance(node_i->node_id,node_j->node_id) < min_distance) {
-                sibling_node = node_j;
-                sibling_idx = j;
-            }
-        }
-
-        if (sibling_node) {
-            physical_nodes[i] = physical_nodes[sibling_idx] = NULL;
-            virtual_node_t* virtual_node = &virtual_topology->virtual_nodes[v];
-            virtual_node->dram_node = node_i;
-            virtual_node->nvram_node = sibling_node;
-            virtual_node->dram_node->latency = measure_latency(cpu_model,
-                                                               virtual_node->dram_node->node_id,
-                                                               virtual_node->dram_node->node_id);
-            virtual_node->nvram_node->latency = measure_latency(cpu_model,
-                                                                virtual_node->dram_node->node_id,
-                                                                virtual_node->nvram_node->node_id);
-            virtual_node->node_id = v;
-            DBG_LOG(INFO, "Fusing physical nodes %d %d into virtual node %d\n", 
-                    node_i->node_id, sibling_node->node_id, virtual_node->node_id);
-            v++;
-        }
-    }
-
-    // any physical node that is not paired with another physical node is 
-    // formed into a virtual node on its own
-    if (2*v < num_physical_nodes) {
-        for (i=0; i<num_physical_nodes; i++) {
-            node_i = physical_nodes[i];
-            virtual_node_t* virtual_node = &virtual_topology->virtual_nodes[v];
-            virtual_node->dram_node = virtual_node->nvram_node = node_i;
-            virtual_node->node_id = v;
-            virtual_node->dram_node->latency = measure_latency(cpu_model,
-                                                               virtual_node->dram_node->node_id,
-                                                               virtual_node->dram_node->node_id);
-            DBG_LOG(WARNING, "Forming physical node %d into virtual node %d without a sibling node.\n",
-                    node_i->node_id, virtual_node->node_id);
-        }
-    }
-
-    *virtual_topologyp = virtual_topology;
-    ret = E_SUCCESS;
-done:
-    free(physical_nodes);
-    return ret;
-#endif
-    return 0;
-}
-
-    
 void crawl_virtual_topology(
     virtual_topology_t* vt,
     void (*node_cb)(virtual_topology_element_t* vte),
@@ -884,6 +723,7 @@ int create_virtual_topology(config_t* cfg, physical_topology_t* pt, virtual_topo
 
         /* create all virtual topology element objects */
         crawl_virtual_topology(vt, create_virtual_node, create_virtual_nvm);
+
     }
 
     *vtp = vt;    
@@ -897,41 +737,94 @@ int destroy_virtual_topology(virtual_topology_t* vt)
     return E_SUCCESS;
 }
 
-/**
- * \brief Initialize virtual topology
- *
- */
-int init_virtual_topology(config_t* cfg, cpu_model_t* cpu_model, virtual_topology_t** vtp)
+virtual_node_t* virtual_node(virtual_topology_t* vt, int node_id)
 {
-    int rc;
-    physical_topology_t* pt;
-    char* physical_topology_filename;
+    int j;
 
-    if (__cconfig_lookup_string(cfg, "general.physical_topology", 
-            &physical_topology_filename) == CONFIG_FALSE) 
+    for (j = 0; j < vt->num_elements; j++) {
+        virtual_topology_element_t* cur_vte = vt->elements_ar[j];
+        if (string_prefix("node", cur_vte->name)) {
+            virtual_node_t* v_node = cur_vte->element;
+            if (v_node->node_id == node_id) {
+                return v_node;
+            }
+        }
+    }
+
+    return NULL;
+}
+
+int num_virtual_nodes(virtual_topology_t* vt, int node_id)
+{
+    int j;
+    int count = 0;
+
+    for (j = 0; j < vt->num_elements; j++) {
+        virtual_topology_element_t* cur_vte = vt->elements_ar[j];
+        if (string_prefix("node", cur_vte->name)) {
+            count++;
+        }
+    }
+
+    return count;
+}
+
+virtual_node_t* virtual_node_iterator_first(virtual_node_iterator_t* it, virtual_topology_t* vt)
+{
+    it->vt = vt;
+    it->i = -1;
+    return virtual_node_iterator_next(it);
+}
+
+virtual_node_t* virtual_node_iterator_next(virtual_node_iterator_t* it)
+{
+    int i;
+
+    for (i=it->i+1; i < it->vt->num_elements; i++)
     {
-        return E_ERROR;
+        virtual_topology_element_t* cur_vte = it->vt->elements_ar[i];
+        if (string_prefix("node", cur_vte->name)) {
+            it->i = i;
+            return (virtual_node_t*) it->vt->elements_ar[it->i]->element;
+        }
     }
+    it->i = it->vt->num_elements;
+    return NULL;
+}
 
-    CHECK_ERROR_CODE(physical_topology_from_xml(cpu_model, physical_topology_filename, &pt));
+int virtual_node_iterator_done(virtual_node_iterator_t* it)
+{
+    if (it->i == it->vt->num_elements) return 1;
 
+    return 0;
+}
 
-    
-/*
-    char* physical_nodes;
-    int   hyperthreading;
-    char* mc_pci_file;
-    
-    if (__cconfig_lookup_string(cfg, "topology.physical_nodes", &physical_nodes) == CONFIG_FALSE) {
-        return E_ERROR;
+virtual_nvm_t* virtual_nvm_iterator_first(virtual_nvm_iterator_t* it, virtual_topology_t* vt)
+{
+    it->vt = vt;
+    it->i = -1;
+    return virtual_nvm_iterator_next(it);
+}
+
+virtual_nvm_t* virtual_nvm_iterator_next(virtual_nvm_iterator_t* it)
+{
+    int i;
+
+    for (i=it->i+1; i < it->vt->num_elements; i++)
+    {
+        virtual_topology_element_t* cur_vte = it->vt->elements_ar[i];
+        if (string_prefix("nvm", cur_vte->name)) {
+            it->i = i;
+            return (virtual_nvm_t*) it->vt->elements_ar[it->i]->element;
+        }
     }
+    it->i = it->vt->num_elements;
+    return NULL;
+}
 
+int virtual_nvm_iterator_done(virtual_nvm_iterator_t* it)
+{
+    if (it->i == it->vt->num_elements) return 1;
 
-    __cconfig_lookup_bool(cfg, "topology.hyperthreading", &hyperthreading);
-    if (__cconfig_lookup_string(cfg, "topology.mc_pci", &mc_pci_file) == CONFIG_FALSE) {
-        mc_pci_file = NULL;
-    }
-
-    return init_numa_topology(physical_nodes, hyperthreading, mc_pci_file, cpu_model, virtual_topologyp);
-*/
+    return 0;
 }

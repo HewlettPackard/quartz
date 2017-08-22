@@ -22,8 +22,11 @@ typedef struct bw_throttle_s {
     int npairs;
 } bw_throttle_t;
 
+void bw_throttle_reset(physical_node_t* phys_node);
 int discover_throttle_values(physical_node_t* phys_node, bw_throttle_t** bw_throttlep);
 int bw_throttle_to_xml(xmlTextWriterPtr writer, bw_throttle_t* bw_throttle);
 int bw_throttle_from_xml(xmlNode* root, bw_throttle_t** bw_throttlep);
+int set_write_bw(config_t* cfg, physical_node_t* node);
+int set_read_bw(config_t* cfg, physical_node_t* node);
 
 #endif /* __MEMTHROTTLE_H */

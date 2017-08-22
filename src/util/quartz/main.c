@@ -13,6 +13,8 @@
 #include <sys/types.h>
 #include <sys/mman.h>
 
+#include "debug.h"
+
 extern void cmd_discover(struct argp_state* state);
 extern void cmd_create(struct argp_state* state);
 extern void cmd_destroy(struct argp_state* state);
@@ -71,6 +73,11 @@ parse_global(int key, char* arg, struct argp_state* state)
 
         case ARGP_KEY_ARG:
             assert( arg );
+
+            if (global->verbosity > 0) {
+                dbg_set_level(DBG_CODE(INFO));
+            }
+
             if(strcmp(arg, "discover") == 0) {
                 cmd_discover(state);
             } 

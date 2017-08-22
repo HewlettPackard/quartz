@@ -28,6 +28,7 @@ Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 static void init() __attribute__((constructor));
 static void finalize() __attribute__((destructor));
 
+static physical_topology_t* physical_topology = NULL;
 static virtual_topology_t* virtual_topology = NULL;
 
 void finalize() {
@@ -36,16 +37,8 @@ void finalize() {
         unregister_self();
     }
 
-    if (read_bw_model.enabled) {
-        for (i=0; i < virtual_topology->num_virtual_nodes; i++) {
-            // FIXME: currently we keep a single bandwidth model and not per-node BW model
-            physical_node_t* phys_node = virtual_topology->virtual_nodes[i].nvram_node;
-            pci_regs_t *regs = phys_node->mc_pci_regs;
+    uninit_bandwidth_model(virtual_topology);
 
-            // reset throttling
-            phys_node->cpu_model->set_throttle_register(regs, THROTTLE_DDR_ACT, 0x8FFF);
-        }
-    }
 #ifdef USE_STATISTICS
     stats_report();
 #endif
@@ -59,21 +52,11 @@ void finalize() {
 
 int fam_init(config_t* cfg, int cpu_speed_mhz);
 
-int init_fam_model(config_t* cfg)
-{
-    // to make sure finalize does not do any latency/bwmodel unitialization as fam doesn't use it
-    latency_model.enabled = 0; 
-    read_bw_model.enabled = 0;
-
-    return fam_init(cfg, cpu_speed_mhz());
-}
-
 int init_pmem_model(config_t* cfg)
 {
     cpu_model_t* cpu;
 
     __cconfig_lookup_bool(cfg, "latency.enable", &latency_model.enabled);
-    __cconfig_lookup_bool(cfg, "bandwidth.enable", &read_bw_model.enabled);
 
     if (init_interposition() != E_SUCCESS) {
         goto error;
@@ -84,11 +67,10 @@ int init_pmem_model(config_t* cfg)
         goto error;
     }
 
-    init_virtual_topology(cfg, cpu, &virtual_topology);
+    CHECK_ERROR_CODE2(load_physical_topology(cfg, &physical_topology), goto error);
+    CHECK_ERROR_CODE2(create_virtual_topology(cfg, physical_topology, &virtual_topology), goto error);
 
-    if (init_bandwidth_model(cfg, virtual_topology) != E_SUCCESS) {
-        goto error;
-    }
+    CHECK_ERROR_CODE2(init_bandwidth_model(cfg, virtual_topology), goto error);
 
     if (latency_model.enabled) {
         if (init_latency_model(cfg, cpu, virtual_topology) != E_SUCCESS) {
@@ -110,14 +92,16 @@ int init_pmem_model(config_t* cfg)
         // main thread is now tracked by the latency emulator
         // first, calibrate the latency emulation
         if (latency_model.calibration) {
-            for (i = 0; i < virtual_topology->num_virtual_nodes; ++i) {
-                latency_calibration(&virtual_topology->virtual_nodes[i]);
+            for (i = 0; i < num_virtual_nodes(virtual_topology); ++i) {
+                latency_calibration(virtual_node(virtual_topology, i));
             }
         }
 #endif
         int write_latency;
         __cconfig_lookup_bool(cfg, "latency.write", &write_latency);
         init_pflush(cpu_speed_mhz(), write_latency);
+
+        fam_init(cfg, cpu_speed_mhz());
     }
 
     return E_SUCCESS;
@@ -154,18 +138,8 @@ void init()
         goto error;
     }
 
-    char* mode;
-    __cconfig_lookup_string(&cfg, "general.mode", &mode);
-
-    if (strcmp(mode, "fam") == 0) {
-        if (init_fam_model(&cfg) != E_SUCCESS) {
-            goto error;
-        }
-    } 
-    else if (strcmp(mode, "pmem") == 0) {
-        if (init_pmem_model(&cfg) != E_SUCCESS) {
-            goto error; 
-        }
+    if (init_pmem_model(&cfg) != E_SUCCESS) {
+        goto error; 
     }
 
     end_time = monotonic_time_us();

@@ -16,14 +16,16 @@ Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #include <pthread.h>
 #include <signal.h>
 #include <stdlib.h>
+
 #include "cpu/cpu.h"
-#include "utlist.h"
 #include "error.h"
 #include "interpose.h"
+#include "libpthread.h"
 #include "model.h"
+#include "monotonic_timer.h"
 #include "thread.h"
 #include "topology.h"
-#include "monotonic_timer.h"
+#include "utlist.h"
 
 static thread_manager_t* thread_manager = NULL;
 __thread thread_t* tls_thread = NULL;
@@ -33,6 +35,7 @@ extern inline hrtime_t hrtime_cycles(void);
 // assign a virtual/physical node using a round-robin policy
 static void rr_next_cpu_id(thread_manager_t* thread_manager, int* next_virtual_node_idp, int* next_cpu_idp)
 {
+#if 0
     int next_virtual_node_id;
     virtual_node_t* virtual_node;
     physical_node_t* physical_node;
@@ -51,65 +54,13 @@ static void rr_next_cpu_id(thread_manager_t* thread_manager, int* next_virtual_n
         physical_node = virtual_node->dram_node;
         thread_manager->next_cpu_id = first_cpu(physical_node->cpu_bitmask);
         thread_manager->next_virtual_node_id = next_virtual_node_id;
-    } 
-}
-
-void rr_set_next_cpu_based_on_rank(int rank, int max_rank)
-{
-    int cpu_id;
-    int virtual_node_id;
-    int i;
-
-    // set the next CPU id based on this process rank id
-    thread_manager->next_virtual_node_id = 0;
-    thread_manager->next_cpu_id = 0;
-    for (i = 0; i <= rank; ++i) {
-        rr_next_cpu_id(thread_manager, &virtual_node_id, &cpu_id);
     }
-
-    DBG_LOG(DEBUG, "no partitioning of CPUs, set next CPU "
-                   "to vnode %d and cpu %d\n", virtual_node_id, cpu_id);
-}
-
-void partition_cpus_based_on_rank(int rank, int max_rank, int num_cpus,
-                                  virtual_topology_t* virtual_topology)
-{
-    // assumed the number of cpus/2 is greater or equal to max_rank
-    // this partition is num_cpus/max_rank
-    int part_size = num_cpus/max_rank;
-    int start = rank * part_size;
-    int end = start + part_size -1;
-    int i;
-    int cpu_id = 0;
-    int virtual_node_id = 0;
-    virtual_node_t* virtual_node;
-    physical_node_t* physical_node;
-
-    DBG_LOG(DEBUG, "partitioning CPUS, this process has CPUs from %d and %d\n",
-            start, end);
-
-    thread_manager->next_virtual_node_id = 0;
-    thread_manager->next_cpu_id = 0;
-    for (i = 0; i < num_cpus; ++i) {
-        rr_next_cpu_id(thread_manager, &virtual_node_id, &cpu_id);
-        if (i < start || i > end) {
-            // this CPU is outside the partition of this process
-            // disable this CPU
-            virtual_node = &virtual_topology->virtual_nodes[virtual_node_id];
-            physical_node = virtual_node->dram_node;
-
-            DBG_LOG(DEBUG, "disabling CPU %d\n", cpu_id);
-
-            if (numa_bitmask_isbitset(physical_node->cpu_bitmask, cpu_id)) {
-                numa_bitmask_clearbit(physical_node->cpu_bitmask, cpu_id);
-            }
-        }
-    }
+#endif 
 }
 
 int bind_thread_on_cpu(thread_manager_t* thread_manager, thread_t* thread, int virtual_node_id, int cpu_id)
 {
-    thread->virtual_node = &thread_manager->virtual_topology->virtual_nodes[virtual_node_id];
+    thread->virtual_node = virtual_node(thread_manager->virtual_topology, virtual_node_id);
     DBG_LOG(INFO, "Binding thread tid [%d] pthread: 0x%lx on processor %d\n", thread->tid, thread->pthread, cpu_id);
     struct bitmask* cpubind = numa_allocate_cpumask();
     numa_bitmask_setbit(cpubind, cpu_id);
@@ -126,7 +77,8 @@ int bind_thread_on_mem(thread_manager_t* thread_manager, thread_t* thread, int v
 {
     int physical_node_id;
     struct bitmask* membind = numa_allocate_nodemask();
-    physical_node_id = thread_manager->virtual_topology->virtual_nodes[virtual_node_id].dram_node->node_id;
+    virtual_node_t* vnode = virtual_node(thread_manager->virtual_topology, virtual_node_id);
+    physical_node_id = vnode->dram_node->node_id;
     numa_bitmask_setbit(membind, physical_node_id);
     numa_set_membind(membind);
     numa_free_nodemask(membind);
@@ -213,16 +165,16 @@ int register_thread(thread_manager_t* thread_manager, pthread_t pthread, pid_t t
 
     // bind the thread on a cpu and memory node and
     // link the thread to the list of threads
-    assert(__lib_pthread_mutex_lock);
-    __lib_pthread_mutex_lock(&thread_manager->mutex);
+    assert(libpthread_pthread_mutex_lock);
+    libpthread_pthread_mutex_lock(&thread_manager->mutex);
     rr_next_cpu_id(thread_manager, &virtual_node_id, &cpu_id);
     if ((ret = bind_thread_on_cpu(thread_manager, thread, virtual_node_id, cpu_id)) != E_SUCCESS) {
-    	__lib_pthread_mutex_unlock(&thread_manager->mutex);
+    	libpthread_pthread_mutex_unlock(&thread_manager->mutex);
     	DBG_LOG(ERROR, "thread id [%d] failed to bind to CPU\n", thread->tid);
         goto error;
     }
     if ((ret = bind_thread_on_mem(thread_manager, thread, virtual_node_id, cpu_id)) != E_SUCCESS) {
-    	__lib_pthread_mutex_unlock(&thread_manager->mutex);
+    	libpthread_pthread_mutex_unlock(&thread_manager->mutex);
     	DBG_LOG(ERROR, "thread id [%d] failed to bind to Memory\n", thread->tid);
         goto error;
     }
@@ -232,7 +184,7 @@ int register_thread(thread_manager_t* thread_manager, pthread_t pthread, pid_t t
     cpu_model_t *cpu = thread_manager->virtual_topology->virtual_nodes[virtual_node_id].dram_node->cpu_model;
     if (setup_events_thread_self(thread, cpu->pmc_events.native_events) != 0) {
         ret = E_ERROR;
-        __lib_pthread_mutex_unlock(&thread_manager->mutex);
+        libpthread_pthread_mutex_unlock(&thread_manager->mutex);
         goto error;
     }
 #endif
@@ -243,7 +195,7 @@ int register_thread(thread_manager_t* thread_manager, pthread_t pthread, pid_t t
         thread->stats.register_timestamp = monotonic_time_us();
     }
 #endif
-    __lib_pthread_mutex_unlock(&thread_manager->mutex);
+    libpthread_pthread_mutex_unlock(&thread_manager->mutex);
 
     init_thread_latency_model(thread);
 
@@ -260,7 +212,7 @@ error:
 
 int unregister_thread(thread_manager_t* thread_manager, thread_t * thread)
 {
-    __lib_pthread_mutex_lock(&thread_manager->mutex);
+    libpthread_pthread_mutex_lock(&thread_manager->mutex);
 
     if (thread_manager == NULL) {
         return E_SUCCESS;
@@ -275,7 +227,7 @@ int unregister_thread(thread_manager_t* thread_manager, thread_t * thread)
     }
 #endif
 
-    __lib_pthread_mutex_unlock(&thread_manager->mutex);
+    libpthread_pthread_mutex_unlock(&thread_manager->mutex);
 
 #ifdef PAPI_SUPPORT
     pmc_events_stop_local_thread();
@@ -324,8 +276,8 @@ void interrupt_threads(thread_manager_t* manager)
 {
     thread_t* thread;
 
-    assert(__lib_pthread_mutex_lock);
-    __lib_pthread_mutex_lock(&manager->mutex);
+    assert(libpthread_pthread_mutex_lock);
+    libpthread_pthread_mutex_lock(&manager->mutex);
     LL_FOREACH(manager->thread_list, thread)
     {
     	assert(thread);
@@ -342,8 +294,8 @@ void interrupt_threads(thread_manager_t* manager)
             pthread_kill(thread->pthread, SIGUSR1);
         }
     }
-    assert(__lib_pthread_mutex_unlock);
-    __lib_pthread_mutex_unlock(&manager->mutex);
+    assert(libpthread_pthread_mutex_unlock);
+    libpthread_pthread_mutex_unlock(&manager->mutex);
 }
 
 void* monitor_thread(void* arg)
@@ -383,7 +335,7 @@ int init_thread_manager(config_t* cfg, virtual_topology_t* virtual_topology)
     int ret;
     pthread_t monitor_tid;
     thread_manager_t* mgr;
-    virtual_node_t* virtual_node;
+    virtual_node_t* vnode;
     physical_node_t* physical_node;
 
     if (!(mgr = malloc(sizeof(thread_manager_t)))) {
@@ -406,16 +358,16 @@ int init_thread_manager(config_t* cfg, virtual_topology_t* virtual_topology)
         mgr->min_epoch_duration_us = MIN_EPOCH_DURATION_US;
     }
 
-    virtual_node = &virtual_topology->virtual_nodes[mgr->next_virtual_node_id];
-    physical_node = virtual_node->dram_node;
+    vnode = virtual_node(virtual_topology, mgr->next_virtual_node_id);
+    physical_node = vnode->dram_node;
     mgr->next_cpu_id = first_cpu(physical_node->cpu_bitmask);
     pthread_mutex_init(&mgr->mutex, NULL);
 
     // fire a monitoring thread that periodically interrupts threads
-    assert(__lib_pthread_create);
-    assert(__lib_pthread_detach);
-    __lib_pthread_create(&monitor_tid, NULL, monitor_thread, (void*) mgr);
-    __lib_pthread_detach(monitor_tid);
+    assert(libpthread_pthread_create);
+    assert(libpthread_pthread_detach);
+    libpthread_pthread_create(&monitor_tid, NULL, monitor_thread, (void*) mgr);
+    libpthread_pthread_detach(monitor_tid);
 
     thread_manager = mgr;
     return E_SUCCESS;

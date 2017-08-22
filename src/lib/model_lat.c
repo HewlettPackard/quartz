@@ -88,6 +88,8 @@ static int check_target_latency_against_hw_latency(virtual_topology_t* virtual_t
     int hw_latency_dram;
     int hw_latency_nvram;
 
+//FIXME
+#if 0 
     for (i = 0; i < virtual_topology->num_virtual_nodes; ++i) {
         hw_latency_dram = virtual_topology->virtual_nodes[i].dram_node->latency;
         hw_latency_nvram = virtual_topology->virtual_nodes[i].nvram_node->latency;
@@ -102,7 +104,7 @@ static int check_target_latency_against_hw_latency(virtual_topology_t* virtual_t
             break;
         }
     }
-
+#endif
     return status;
 }
 

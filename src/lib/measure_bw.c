@@ -102,10 +102,10 @@ int timeitp(void (*function)(void*, size_t), int nthreads, void* array, size_t s
     pthread_barrier_init(&g_barrier, NULL, nthreads);
 
     pthread_t thr[nthreads];
-    //__lib_pthread_create(&thr[0], NULL, thread_master, new int(0));
+    //libpthread_pthread_create(&thr[0], NULL, thread_master, new int(0));
     for (p = 1; p < nthreads; ++p) {
-    	assert(__lib_pthread_create);
-        __lib_pthread_create(&thr[p], NULL, thread_worker, (void *) p);
+    	assert(libpthread_pthread_create);
+        libpthread_pthread_create(&thr[p], NULL, thread_worker, (void *) p);
     }
 
     // use current thread as master thread;

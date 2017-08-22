@@ -30,7 +30,7 @@ Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 /**
  * \file
  * 
- * \page latency_emulation Memory bandwidth throttling
+ * \page latency_emulation Memory power throttling
  * 
  * To emulate bandwidth, we rely on memory power throttling (supported by recent memory 
  * controllers) to limit the effective bandwidth to the DRAM attached to a socket.
@@ -43,6 +43,15 @@ Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  * 
  */ 
 
+
+/** 
+ * \brief Reset power throttling register
+ */
+void bw_throttle_reset(physical_node_t* phys_node)
+{
+    pci_regs_t *regs = phys_node->mc_pci_regs;
+    phys_node->cpu_model->set_throttle_register(regs, THROTTLE_DDR_ACT, 0x8FFF);
+}
 
 /**
  * \brief Derive the memory bandwidth throttle register values. 
@@ -66,8 +75,7 @@ int discover_throttle_values(physical_node_t* phys_node, bw_throttle_t** bw_thro
     int phys_node_id = phys_node->node_id;
     pci_regs_t *regs = phys_node->mc_pci_regs;
     int throttle_increment = 15;
-    //int throttle_initial_value = 0x800f;
-    int throttle_initial_value = 0x8feb;
+    int throttle_initial_value = 0x800f;
     int min_number_throttle_pairs = 10;
     double stop_slope = 0.1;
 
@@ -78,7 +86,6 @@ int discover_throttle_values(physical_node_t* phys_node, bw_throttle_t** bw_thro
     throttle_reg_val = throttle_initial_value;
 
     DBG_LOG(INFO, "throttle bus id %d, on physical node: %d\n", regs->addr[0].bus_id, phys_node_id);
-    printf("throttle bus id %d, on physical node: %d\n", regs->addr[0].bus_id, phys_node_id);
 
     // run until bandwidth curve flattens out which we find out using 
     // gradient (slope) analysis 
@@ -89,7 +96,6 @@ int discover_throttle_values(physical_node_t* phys_node, bw_throttle_t** bw_thro
         phys_node->cpu_model->set_throttle_register(regs, THROTTLE_DDR_ACT, throttle_reg_val);
         best_rate = measure_read_bw(phys_node_id, phys_node_id);
         DBG_LOG(INFO, "throttle reg: 0x%x bandwidth: %f\n", throttle_reg_val, best_rate);
-        printf("throttle reg: 0x%x bandwidth: %f\n", throttle_reg_val, best_rate);
         bw_throttle->throttle_reg_val[i] = throttle_reg_val;
         bw_throttle->bw[i] = best_rate;
         x[i] = (double) throttle_reg_val; // slope calculation requires values of type double
@@ -103,8 +109,7 @@ int discover_throttle_values(physical_node_t* phys_node, bw_throttle_t** bw_thro
         }
     }
 
-    // reset throttling
-    phys_node->cpu_model->set_throttle_register(regs, THROTTLE_DDR_ACT, 0x8FFF);
+    bw_throttle_reset(phys_node);
 
     bw_throttle->npairs = i;
     *bw_throttlep = bw_throttle;
@@ -210,78 +215,18 @@ int bw_throttle_from_xml(xmlNode* root, bw_throttle_t** bw_throttlep)
 }
 
 
-
-#if 0
-static int load_model(const char* path, const char* prefix, bw_model_t* bw_model)
-{
-    FILE *fp;
-    char *line = NULL;
-    char str[64];
-    size_t len = 0;
-    ssize_t read;
-    int x;
-    double y;
-    int found_points;
-
-    fp = fopen(path, "r");
-    if (fp == NULL) {
-        return E_ERROR;
-    }
-
-    DBG_LOG(INFO, "Loading %s bandwidth model from %s\n", prefix, path);
-    for (found_points = 0; (read = getline(&line, &len, fp)) != -1; ) {
-        if (strstr(line, prefix)) {
-            sscanf(line, "%s\t%d\t%lf", str, &x, &y);
-            DBG_LOG(INFO, "throttle reg: 0x%x, bandwidth: %f\n", x, y);
-            bw_model->throttle_reg_val[found_points] = x;
-            bw_model->bandwidth[found_points] = y;
-            found_points++;
-        }
-    }
-    free(line);
-    if (found_points) {
-        bw_model->npoints = found_points;
-    } else {
-        DBG_LOG(INFO, "No %s bandwidth model found in %s\n", prefix, path);
-        return E_ERROR;
-    }
-    fclose(fp);
-    return E_SUCCESS;
-}
-
-static int save_model(const char* path, const char* prefix, bw_model_t* bw_model)
-{
-    int i;
-    FILE *fp;
-
-    fp = fopen(path, "a");
-    if (fp == NULL) {
-        return E_ERROR;
-    }
-
-    DBG_LOG(INFO, "Saving %s bandwidth model into %s\n", prefix, path);
-    for (i=0; i<bw_model->npoints; i++) {
-        int x = bw_model->throttle_reg_val[i];
-        double y = bw_model->bandwidth[i];
-        //DBG_LOG(INFO, "throttle reg: 0x%x, bandwidth: %f\n", x, y);
-        fprintf(fp, "%s\t%d\t%f\n", prefix, x, y);
-    }
-    fclose(fp);
-    return E_SUCCESS;
-}
-
-static int find_data_point(bw_model_t* model, double target_bw, unsigned int* point)
+static int bw_throttle_find_pair(bw_throttle_t* bw_throttle, double target_bw, unsigned int* pair_index)
 {
     int i;
     double error;
 
-    // go through all points as we are not sorted and pick the one closest
-    *point = 0;
+    // go through all pairs as we are not (necessarily) sorted and pick the one closest
+    *pair_index = 0;
     error = target_bw;    
-    for (i=1; i<model->npoints; i++) {
-        if (fabs(model->bandwidth[i] - target_bw) < error) {
-            *point = i;
-            error = fabs(model->bandwidth[i] - target_bw);
+    for (i=1; i<bw_throttle->npairs; i++) {
+        if (fabs(bw_throttle->bw[i] - target_bw) < error) {
+            *pair_index = i;
+            error = fabs(bw_throttle->bw[i] - target_bw);
         }
     }
     return E_SUCCESS;
@@ -302,11 +247,12 @@ int __set_write_bw(physical_node_t* node, uint64_t target_bw)
         return E_SUCCESS;
     }
 
-    if ((ret = find_data_point(&write_bw_model, (double) target_bw, &point)) != E_SUCCESS) {
+    if ((ret = bw_throttle_find_pair(node->bw_throttle, (double) target_bw, &point)) != E_SUCCESS) {
         return ret;
     }
-    DBG_LOG(INFO, "Setting throttle reg: %d (0x%x), target write bandwidth: %" PRIu64 ", actual write bandwidth: %" PRIu64 "\n", write_bw_model.throttle_reg_val[point], write_bw_model.throttle_reg_val[point], target_bw, (uint64_t) write_bw_model.bandwidth[point]);
-    node->cpu_model->set_throttle_register(regs, THROTTLE_DDR_ACT, write_bw_model.throttle_reg_val[point]);
+
+    DBG_LOG(INFO, "Setting throttle reg: %d (0x%x), target write bandwidth: %" PRIu64 ", actual write bandwidth: %" PRIu64 "\n", node->bw_throttle->throttle_reg_val[point], node->bw_throttle->throttle_reg_val[point], target_bw, (uint64_t) node->bw_throttle->bw[point]);
+    node->cpu_model->set_throttle_register(regs, THROTTLE_DDR_ACT, node->bw_throttle->throttle_reg_val[point]);
     
     return E_SUCCESS;
 }
@@ -334,11 +280,12 @@ int __set_read_bw(physical_node_t* node, uint64_t target_bw)
         return E_SUCCESS;
     }
 
-    if ((ret = find_data_point(&read_bw_model, (double) target_bw, &point)) != E_SUCCESS) {
+    if ((ret = bw_throttle_find_pair(node->bw_throttle, (double) target_bw, &point)) != E_SUCCESS) {
         return ret;
     }
-    DBG_LOG(INFO, "Setting throttle reg: %d (0x%x), target read bandwidth: %" PRIu64 ", actual read bandwidth: %" PRIu64 "\n", read_bw_model.throttle_reg_val[point], read_bw_model.throttle_reg_val[point], target_bw, (uint64_t) read_bw_model.bandwidth[point]);
-    node->cpu_model->set_throttle_register(regs, THROTTLE_DDR_ACT, read_bw_model.throttle_reg_val[point]);
+
+    DBG_LOG(INFO, "Setting throttle reg: %d (0x%x), target read bandwidth: %" PRIu64 ", actual read bandwidth: %" PRIu64 "\n", node->bw_throttle->throttle_reg_val[point], node->bw_throttle->throttle_reg_val[point], target_bw, (uint64_t) node->bw_throttle->bw[point]);
+    node->cpu_model->set_throttle_register(regs, THROTTLE_DDR_ACT, node->bw_throttle->throttle_reg_val[point]);
 
     return E_SUCCESS;
 }
@@ -350,49 +297,3 @@ int set_read_bw(config_t* cfg, physical_node_t* node)
 
     return __set_read_bw(node, target_bw);
 }
-
-int init_bandwidth_model(config_t* cfg, virtual_topology_t* topology)
-{
-    int i;
-    char* model_file;
-
-    srandom((int)monotonic_time());
-
-    if (read_bw_model.enabled) {
-        DBG_LOG(INFO, "Initializing bandwidth model\n");
-        // initialize bandwidth model
-        for (i=0; i<topology->num_virtual_nodes; i++) {
-            // FIXME: currently we keep a single bandwidth model and not per-node bandwidth model
-            physical_node_t* phys_node = topology->virtual_nodes[i].nvram_node;
-            if (__cconfig_lookup_string(cfg, "bandwidth.model", &model_file) == CONFIG_TRUE) {
-                if (load_model(model_file, "read", &read_bw_model) != E_SUCCESS) {
-                    train_model(phys_node, 'r', &read_bw_model);
-                    save_model(model_file, "read", &read_bw_model);
-                }
-                /*if (load_model(model_file, "write", &write_bw_model) != E_SUCCESS) {
-                    train_model(phys_node, 'w', &write_bw_model);
-                    save_model(model_file, "write", &write_bw_model);
-                }*/
-            }
-        }
-
-        // set read and write memory bandwidth 
-        for (i=0; i<topology->num_virtual_nodes; i++) {
-            physical_node_t* phys_node = topology->virtual_nodes[i].nvram_node;
-            set_read_bw(cfg, phys_node);
-            //set_write_bw(cfg, phys_node);
-        }
-    } else {
-        // reset throttle registers
-        for (i=0; i<topology->num_virtual_nodes; i++) {
-            // FIXME: currently we keep a single bandwidth model and not per-node bandwidth model
-            physical_node_t* phys_node = topology->virtual_nodes[i].dram_node;
-            __set_read_bw(phys_node, (uint64_t) (-1));
-            __set_write_bw(phys_node, (uint64_t) (-1));
-        }
-    }
-
-    return E_SUCCESS;
-}
-
-#endif
