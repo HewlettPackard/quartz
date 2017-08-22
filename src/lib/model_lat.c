@@ -34,9 +34,9 @@ Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  * performance counters.
  */ 
 
-
-
 latency_model_t latency_model;
+
+extern int fam_init(config_t* cfg, int cpu_speed_mhz);
 
 #pragma GCC push_options
 #pragma GCC optimize ("O0")
@@ -112,10 +112,13 @@ int init_latency_model(config_t* cfg, cpu_model_t* cpu, virtual_topology_t* virt
 {
 	int i;
 
-    DBG_LOG(INFO, "Initializing latency model\n");
+    __cconfig_lookup_bool(cfg, "latency.enable", &latency_model.enabled);
+
+    if (!latency_model.enabled) return E_SUCCESS;
+
+    DBG_LOG(INFO, "Initializing memory latency model\n");
 
     memset(&latency_model, 0, sizeof(latency_model_t));
-    latency_model.enabled = 1;
 
     __cconfig_lookup_int(cfg, "latency.read", &latency_model.read_latency);
     __cconfig_lookup_int(cfg, "latency.write", &latency_model.write_latency);
@@ -160,6 +163,33 @@ int init_latency_model(config_t* cfg, cpu_model_t* cpu, virtual_topology_t* virt
         latency_model.stalls_calibration_factor = 1.0;
     }
 #endif
+
+    init_thread_manager(cfg, virtual_topology);
+
+#ifdef USE_STATISTICS
+    // statistics makes use of the thread manager and is used by the register_self()
+    stats_enable(cfg);
+#endif
+
+    // track main thread (assumes we are running in the context of the main thread)
+    if (register_self() != E_SUCCESS) {
+        return E_ERROR;
+    }
+
+#ifdef CALIBRATION_SUPPORT
+    // main thread is now tracked by the latency emulator
+    // first, calibrate the latency emulation
+    if (latency_model.calibration) {
+        for (i = 0; i < num_virtual_nodes(virtual_topology); ++i) {
+            latency_calibration(virtual_node(virtual_topology, i));
+        }
+    }
+#endif
+    int write_latency;
+    __cconfig_lookup_bool(cfg, "latency.write", &write_latency);
+    init_pflush(cpu_speed_mhz(), write_latency);
+
+    fam_init(cfg, cpu_speed_mhz());
 
     return E_SUCCESS;
 }

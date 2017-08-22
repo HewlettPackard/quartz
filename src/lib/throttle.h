@@ -14,6 +14,8 @@ Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #ifndef __MEMTHROTTLE_H
 #define __MEMTHROTTLE_H
 
+#include <libxml/xmlwriter.h>
+
 #include "cpu/cpu.h"
 
 typedef struct bw_throttle_s {

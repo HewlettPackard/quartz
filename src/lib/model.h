@@ -40,24 +40,12 @@ typedef struct {
 #else
     pmc_event_t* pmc_stall_cycles;
     pmc_event_t* pmc_remote_dram;
-    int process_local_rank;
-    int max_local_processe_ranks;
 #endif
 
     double stalls_calibration_factor;
 } latency_model_t;
 
 extern latency_model_t latency_model;
-
-typedef struct {
-    unsigned int throttle_reg_val[MAX_THROTTLE_VALUE]; 
-    double bandwidth[MAX_THROTTLE_VALUE];
-    int npoints;
-    int enabled;
-} bw_model_t;
-
-extern bw_model_t read_bw_model;
-extern bw_model_t write_bw_model;
 
 int init_bandwidth_model(config_t* cfg, struct virtual_topology_s* topology);
 int init_latency_model(config_t* cfg, cpu_model_t* cpu, struct virtual_topology_s* virtual_topology);

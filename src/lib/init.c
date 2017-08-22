@@ -50,9 +50,7 @@ void finalize() {
     //__cconfig_destroy(&cfg);
 }
 
-int fam_init(config_t* cfg, int cpu_speed_mhz);
-
-int init_pmem_model(config_t* cfg)
+static int init_perf_model(config_t* cfg)
 {
     cpu_model_t* cpu;
 
@@ -71,38 +69,7 @@ int init_pmem_model(config_t* cfg)
     CHECK_ERROR_CODE2(create_virtual_topology(cfg, physical_topology, &virtual_topology), goto error);
 
     CHECK_ERROR_CODE2(init_bandwidth_model(cfg, virtual_topology), goto error);
-
-    if (latency_model.enabled) {
-        if (init_latency_model(cfg, cpu, virtual_topology) != E_SUCCESS) {
-   	        goto error;
-        }
-
-        init_thread_manager(cfg, virtual_topology);
-
-#ifdef USE_STATISTICS
-        // statistics makes use of the thread manager and is used by the register_self()
-        stats_enable(cfg);
-#endif
-
-        if (register_self() != E_SUCCESS) {
-            goto error;
-        }
-
-#ifdef CALIBRATION_SUPPORT
-        // main thread is now tracked by the latency emulator
-        // first, calibrate the latency emulation
-        if (latency_model.calibration) {
-            for (i = 0; i < num_virtual_nodes(virtual_topology); ++i) {
-                latency_calibration(virtual_node(virtual_topology, i));
-            }
-        }
-#endif
-        int write_latency;
-        __cconfig_lookup_bool(cfg, "latency.write", &write_latency);
-        init_pflush(cpu_speed_mhz(), write_latency);
-
-        fam_init(cfg, cpu_speed_mhz());
-    }
+    CHECK_ERROR_CODE2(init_latency_model(cfg, cpu, virtual_topology), goto error);
 
     return E_SUCCESS;
 
@@ -115,12 +82,6 @@ void init()
     config_t cfg;
     char* ld_preload_path;
     double start_time, end_time;
-#ifdef CALIBRATION_SUPPORT
-    int i;
-#endif
-
-    // FIXME: do we need to register the main thread with our system?
-    // YES: for sure for single-threaded apps
 
     start_time = monotonic_time_us();
 
@@ -138,7 +99,7 @@ void init()
         goto error;
     }
 
-    if (init_pmem_model(&cfg) != E_SUCCESS) {
+    if (init_perf_model(&cfg) != E_SUCCESS) {
         goto error; 
     }
 

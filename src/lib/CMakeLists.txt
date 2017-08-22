@@ -19,6 +19,7 @@ set(quartzcore_src
     model_lat.c
     monotonic_timer.c
     misc.c
+    queue.c
     stat.c
     thread.c
     throttle.c
@@ -31,8 +32,6 @@ set(nvmemul_src
     interpose.c
     pflush.c
     pmalloc.c
-    queue.c
-    process_rank.c
 )
 
 include_directories(${LIBXML_INCLUDE_DIR})

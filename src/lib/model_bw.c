@@ -23,6 +23,7 @@ Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #include "monotonic_timer.h"
 #include "model.h"
 #include "stat.h"
+#include "throttle.h"
 #include "topology.h"
 
 /**
@@ -39,7 +40,6 @@ static int bw_model_enabled;
 int init_bandwidth_model(config_t* cfg, virtual_topology_t* vt)
 {
     int i;
-    char* model_file;
 
     srandom((int)monotonic_time());
 
@@ -52,6 +52,8 @@ int init_bandwidth_model(config_t* cfg, virtual_topology_t* vt)
     __cconfig_lookup_bool(cfg, "bandwidth.enable", &bw_model_enabled);
 
     if (!bw_model_enabled) return E_SUCCESS;
+
+    DBG_LOG(INFO, "Initializing memory bandwidth model\n");
 
     // set read and write memory bandwidth for nvm
     virtual_nvm_iterator_t itnvm;
@@ -79,4 +81,6 @@ int uninit_bandwidth_model(virtual_topology_t* vt)
         physical_node_t* phys_node = &vt->pt->physical_nodes[i];
         bw_throttle_reset(phys_node);
     }
+
+    return E_SUCCESS;
 }
