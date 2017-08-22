@@ -832,3 +832,20 @@ int virtual_nvm_iterator_done(virtual_nvm_iterator_t* it)
 
     return 0;
 }
+
+int bind_process_on_virtual_node(virtual_topology_t* vt, int virtual_node_id)
+{
+    virtual_node_t* vnode = virtual_node(vt, virtual_node_id);
+    int phys_node_id = vnode->dram_node->node_id;
+
+    DBG_LOG(INFO, "Binding process on virtual node %d (physical node %d)\n", virtual_node_id, phys_node_id);
+
+    struct bitmask* mask = numa_allocate_nodemask();
+    numa_bitmask_setbit(mask, phys_node_id);
+ 
+    numa_run_on_node_mask(mask);
+    numa_set_membind(mask);
+    numa_free_nodemask(mask);
+
+    return E_SUCCESS;
+}

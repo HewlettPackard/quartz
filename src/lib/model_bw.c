@@ -66,6 +66,12 @@ int init_bandwidth_model(config_t* cfg, virtual_topology_t* vt)
         // write bandwidth throttling not supported
     }
 
+    // bind process to requested virtual node
+    int nodebind;
+    if (__cconfig_lookup_int(cfg, "general.nodebind", &nodebind) == CONFIG_TRUE) {
+        CHECK_ERROR_CODE(bind_process_on_virtual_node(vt, nodebind));
+    }
+
     return E_SUCCESS;
 }
 

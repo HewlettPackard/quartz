@@ -164,6 +164,6 @@ virtual_nvm_t* virtual_nvm_iterator_first(virtual_nvm_iterator_t* it, virtual_to
 virtual_nvm_t* virtual_nvm_iterator_next(virtual_nvm_iterator_t* it);
 int virtual_nvm_iterator_done(virtual_nvm_iterator_t* it);
 
-
+int bind_process_on_virtual_node(virtual_topology_t* vt, int virtual_node_id);
 
 #endif /* __TOPOLOGY_H */
