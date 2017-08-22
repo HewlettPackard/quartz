@@ -246,6 +246,9 @@ int discover_physical_topology(cpu_model_t* cpu_model, physical_topology_t** phy
     for (i=0; i<pt->num_nodes; i++) {
         for (j=0; j<pt->num_nodes; j++) {
             pt->physical_nodes[i].latencies[j] = measure_latency(cpu_model, i, j);
+            if (i == j) {
+                pt->physical_nodes[n].local_latency = pt->physical_nodes[i].latencies[j];
+            }
         }
         discover_throttle_values(&pt->physical_nodes[i], &pt->physical_nodes[i].bw_throttle);
     }
@@ -442,6 +445,7 @@ static void mem_latencies_from_xml(xmlNode* root, physical_topology_t* pt, physi
             xmlFree(tmp_xchar);
         }
     }
+    pn->local_latency = pn->latencies[pn->node_id];
 }
 
 static void physical_node_from_xml(xmlNode* root, cpu_model_t* cpu_model, physical_topology_t* pt)
@@ -660,7 +664,7 @@ static void create_virtual_nvm(virtual_topology_element_t* vte)
     v_nvm->size = string_to_size(sizestr);
     v_nvm->mountpath = mountpath;
     v_nvm->membind = membind;
-    v_nvm->nvm_node = &vte->vt->pt->physical_nodes[membind];
+    v_nvm->phys_node = &vte->vt->pt->physical_nodes[membind];
     vte->element = v_nvm;
 
     return;

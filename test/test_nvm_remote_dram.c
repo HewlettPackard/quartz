@@ -14,7 +14,6 @@ Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 #include <stdio.h>
 #include <unistd.h>
-#include "pmalloc.h"
 
 
 #define BUF_SIZE (4 * 1024)
@@ -23,6 +22,8 @@ unsigned long **mem;
 
 void iter()
 {
+//FIXME: fix this test to use the pmem pmalloc or mnemosyne pmalloc
+#if 0
 	int i;
 	int j;
 	unsigned long k;
@@ -51,6 +52,7 @@ void iter()
 		pfree(mem[i], BUF_SIZE * sizeof(unsigned long));
 	}
 	pfree(mem, BUF_SIZE * sizeof(unsigned long *));
+#endif
 }
 
 int main()

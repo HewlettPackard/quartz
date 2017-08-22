@@ -76,7 +76,7 @@ static void show_thread_stats(thread_t *thread, FILE *out_file) {
     fprintf(out_file, "\t\t: execution time: %lu usecs\n", fixed_value);
     fprintf(out_file, "\t\t: stall cycles: %lu\n", thread->stats.stall_cycles);
 
-    if (thread->virtual_node->dram_node != thread->virtual_node->nvram_node &&
+    if (thread->virtual_node->dram_node != thread->virtual_node->nvm->phys_node &&
                 latency_model.pmc_remote_dram) {
         cycles = ns_to_cycles(thread->cpu_speed_mhz, tls_hw_remote_latency);
         fixed_value = cycles ? thread->stats.stall_cycles / cycles : 0;

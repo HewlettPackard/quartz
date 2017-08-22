@@ -31,7 +31,6 @@ set(quartzcore_src
 set(nvmemul_src
     init.c
     interpose.c
-    pmalloc.c
 )
 
 include_directories(${LIBXML_INCLUDE_DIR})

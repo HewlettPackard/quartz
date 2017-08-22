@@ -62,7 +62,7 @@ int init_bandwidth_model(config_t* cfg, virtual_topology_t* vt)
          !virtual_nvm_iterator_done(&itnvm);
          vnvm = virtual_nvm_iterator_next(&itnvm))
     {
-        set_read_bw(cfg, vnvm->nvm_node);
+        set_read_bw(cfg, vnvm->phys_node);
         // write bandwidth throttling not supported
     }
 

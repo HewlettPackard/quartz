@@ -22,7 +22,6 @@ Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 #include "thread.h"
 #include <sys/time.h>
-#include "pmalloc.h"
 #include "debug.h"
 //#include "stat.h"
 

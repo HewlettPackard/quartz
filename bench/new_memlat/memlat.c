@@ -67,7 +67,7 @@ void* worker(void* arg)
 
 #ifdef MEMLAT_SUPPORT
     total_time = g_nelems * latency_ns;
-    if (thread_self()->virtual_node->dram_node != thread_self()->virtual_node->nvram_node) {
+    if (thread_self()->virtual_node->dram_node != thread_self()->virtual_node->nvm->phys_node) {
         detected_hw_lat = ns_to_cycles(thread_self()->cpu_speed_mhz, tls_hw_remote_latency);
         if (tls_global_remote_dram > 0) {
     	    actual_lat = thread_self()->stall_cycles / tls_global_remote_dram;

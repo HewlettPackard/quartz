@@ -82,29 +82,37 @@ static inline void create_delay_ns(cpu_model_t* cpu, int ns)
 }
 */
 
+static int hw_nvm_latency(virtual_node_t* vnode)
+{
+    int nvm_phys_node_id = vnode->nvm->phys_node->node_id;
+    return vnode->dram_node->latencies[nvm_phys_node_id];
+}
+
 static int check_target_latency_against_hw_latency(virtual_topology_t* virtual_topology) {
     int status = 0;
     int i;
     int hw_latency_dram;
-    int hw_latency_nvram;
+    int hw_latency_nvm;
 
-//FIXME
-#if 0 
-    for (i = 0; i < virtual_topology->num_virtual_nodes; ++i) {
-        hw_latency_dram = virtual_topology->virtual_nodes[i].dram_node->latency;
-        hw_latency_nvram = virtual_topology->virtual_nodes[i].nvram_node->latency;
+    virtual_node_iterator_t it;
+    virtual_node_t* vnode;
+    for (vnode = virtual_node_iterator_first(&it, virtual_topology);
+         !virtual_node_iterator_done(&it);
+         vnode = virtual_node_iterator_next(&it))
+    {
+        hw_latency_dram = vnode->dram_node->local_latency;
+        hw_latency_nvm = hw_nvm_latency(vnode);
         if (hw_latency_dram >= latency_model.read_latency ||
             hw_latency_dram >= latency_model.write_latency ||
-            hw_latency_nvram >= latency_model.read_latency ||
-            hw_latency_nvram >= latency_model.write_latency) {
+            hw_latency_nvm >= latency_model.read_latency ||
+            hw_latency_nvm >= latency_model.write_latency) {
             DBG_LOG(ERROR, "Target read (%d) and write (%d) latency to be emulated must be greater than the "
             		"hardware latency dram (%d) and virtual nvram (%d) (virtual node %d)\n",
-            		latency_model.read_latency, latency_model.write_latency, hw_latency_dram, hw_latency_nvram, i);
+            		latency_model.read_latency, latency_model.write_latency, hw_latency_dram, hw_latency_nvm, i);
             status = -1;
             break;
         }
     }
-#endif
     return status;
 }
 
@@ -204,8 +212,8 @@ __thread uint64_t tls_global_local_dram = 0;
 
 void init_thread_latency_model(thread_t *thread)
 {
-    tls_hw_local_latency = thread->virtual_node->dram_node->latency;
-    tls_hw_remote_latency = thread->virtual_node->nvram_node->latency;
+    tls_hw_local_latency = thread->virtual_node->dram_node->local_latency;
+    tls_hw_remote_latency = hw_nvm_latency(thread->virtual_node);
 }
 
 void create_latency_epoch()
@@ -243,13 +251,13 @@ void create_latency_epoch()
 #endif
 
     // this is the generic hardware latency for this thread (it takes into account the current virtual node latencies)
-    hw_latency = thread->virtual_node->nvram_node->latency;
+    hw_latency = hw_nvm_latency(thread->virtual_node);
     target_latency = latency_model.read_latency;
 
     // check if the thread_self is remote (virtual topology where dram != nvram) or local (dram == nvram)
     // on this case, stall cycles will be a proportion of remote memory accesses
     // TODO: the read pmc method used below must be changed to support PAPI
-    if (thread->virtual_node->dram_node != thread->virtual_node->nvram_node &&
+    if (thread->virtual_node->dram_node != thread->virtual_node->nvm->phys_node &&
             latency_model.pmc_remote_dram) {
         stall_cycles = read_pmc_event(latency_model.pmc_remote_dram);
 	} else {

@@ -15,7 +15,6 @@ Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #include <stdlib.h>
 #include <stdio.h>
 #include "gtest/gtest.h"
-#include "pmalloc.h"
 
 int main(int argc, char** argv)
 {
@@ -24,6 +23,5 @@ int main(int argc, char** argv)
     printf("PID: %d\n", getpid());
     printf("malloc: %p\n", malloc(8));
     printf("malloc: %p\n", malloc(8));
-    printf("pmalloc: %p\n", pmalloc(8));
 }
 

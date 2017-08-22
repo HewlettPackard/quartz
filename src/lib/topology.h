@@ -45,24 +45,28 @@ Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
  */
  
-typedef struct {
+struct physical_node_s {
     int node_id;
     cpu_model_t* cpu_model;
     pci_regs_t* mc_pci_regs;
-    int num_cpus; // number of node's cpus
-    struct bitmask* cpu_bitmask; // a bitmask of the node's CPUs 
+    /** number of node's cpus */
+    int num_cpus; 
 
-    // this is actual physical latency. the latency number though depends on 
-    // whether the node corresponds to a dram node or a nvram node. 
-    // if dram then latency is the measured local latency to dram.
-    // if nvram then latency is the measured remote latency to the sibling nvram node
-    int latency; 
-    int* latencies; // latencies to local and remote memory
-    struct bw_throttle_s* bw_throttle; // local memory bandwidth throttle values
-} physical_node_t;
+    /** a bitmask of the node's CPUs */
+    struct bitmask* cpu_bitmask; 
+
+    /** local memory latency */
+    int local_latency; 
+
+    /** all (local and remote) memory latencies */
+    int* latencies; 
+
+    /** local memory bandwidth throttle values */
+    struct bw_throttle_s* bw_throttle; 
+};
 
 typedef struct physical_topology_s {
-    physical_node_t* physical_nodes; // pointer to an array of physical nodes
+    struct physical_node_s* physical_nodes; // pointer to an array of physical nodes
     int num_nodes;
 } physical_topology_t;
 
@@ -72,7 +76,7 @@ struct virtual_nvm_s {
     size_t size;
     int membind;
     const char* mountpath;
-    physical_node_t* nvm_node;
+    struct physical_node_s* phys_node;
 };
 
 typedef struct virtual_node_s {
@@ -80,9 +84,7 @@ typedef struct virtual_node_s {
     int node_id;
     int cpunodebind;
     int membind;
-    physical_node_t* dram_node;
-    physical_node_t* nvram_node;
-    //cpu_model_t* cpu_model;
+    struct physical_node_s* dram_node;
     struct virtual_nvm_s* nvm;
 } virtual_node_t;
 
@@ -129,6 +131,7 @@ struct virtual_nvm_iterator_s {
     struct virtual_topology_s* vt;
 };
 
+typedef struct physical_node_s physical_node_t;
 typedef struct virtual_nvm_s virtual_nvm_t;
 typedef struct virtual_topology_element_s virtual_topology_element_t;
 typedef struct virtual_topology_s virtual_topology_t;

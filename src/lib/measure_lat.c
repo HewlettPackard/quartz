@@ -316,7 +316,7 @@ static int calibrate_load_from_file(virtual_node_t *virtual_node) {
     double correction_factor;
     int status = E_ERROR;
 
-    if (virtual_node->dram_node == virtual_node->nvram_node) {
+    if (virtual_node->dram_node == virtual_node->nvm->phys_node) {
     	file_name = FILE_CALIB_LOCAL;
     } else {
     	file_name = FILE_CALIB_REMOTE;
@@ -347,7 +347,7 @@ static void calibrate_save_to_file(virtual_node_t *virtual_node, double correcti
 	char *file_name;
 	FILE *fp;
 
-	if (virtual_node->dram_node == virtual_node->nvram_node) {
+	if (virtual_node->dram_node == virtual_node->nvm->phys_node) {
 		file_name = FILE_CALIB_LOCAL;
 	} else {
 		file_name = FILE_CALIB_REMOTE;
@@ -444,7 +444,7 @@ static double calibrate_with_size(virtual_node_t *virtual_node, double calib_siz
 void latency_calibration(virtual_node_t *virtual_node) {
     double best_factor;
     int from_node = virtual_node->dram_node->node_id;
-    int to_node = virtual_node->nvram_node->node_id;
+    int to_node = virtual_node->nvm->phys_node->node_id;
 
     // if calibration file exist, load the correction factor and exit
     if (calibrate_load_from_file(virtual_node) == E_SUCCESS) {
