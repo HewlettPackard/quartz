@@ -12,6 +12,7 @@ set(quartzcore_src
     dev.c
     debug.c
     graph.c
+    fam_atomic.c
     libpthread.c
     measure_bw.c
     measure_lat.c
@@ -19,6 +20,7 @@ set(quartzcore_src
     model_lat.c
     monotonic_timer.c
     misc.c
+    pflush.c
     queue.c
     stat.c
     thread.c
@@ -27,10 +29,8 @@ set(quartzcore_src
 )
 
 set(nvmemul_src
-    fam_atomic.c
     init.c
     interpose.c
-    pflush.c
     pmalloc.c
 )
 
