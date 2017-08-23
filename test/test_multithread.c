@@ -123,11 +123,11 @@ static int bind_cpu(thread_t *thread) {
     new_cpuset = CPU_ALLOC(ncpus);
     CPU_ZERO_S(setsize, cur_cpuset);
     CPU_ZERO_S(setsize, new_cpuset);
-    CPU_SET_S(thread->cpu_id, setsize, new_cpuset);
+    CPU_SET_S(thread->phys_cpu_id, setsize, new_cpuset);
 
     if (pthread_getaffinity_np(thread->pthread, setsize, cur_cpuset) != 0) {
         DBG_LOG(ERROR, "Cannot get thread tid [%d] affinity, pthread: 0x%lx on processor %d\n",
-        		thread->tid, thread->pthread, thread->cpu_id);
+        		thread->tid, thread->pthread, thread->phys_cpu_id);
         return 1;
     }
 
@@ -136,10 +136,10 @@ static int bind_cpu(thread_t *thread) {
     	return 0;
     }
 
-    DBG_LOG(INFO, "Binding thread tid [%d] pthread: 0x%lx on processor %d\n", thread->tid, thread->pthread, thread->cpu_id);
+    DBG_LOG(INFO, "Binding thread tid [%d] pthread: 0x%lx on processor %d\n", thread->tid, thread->pthread, thread->phys_cpu_id);
 
     if (pthread_setaffinity_np(thread->pthread, setsize, new_cpuset) != 0) {
-        DBG_LOG(ERROR, "Cannot bind thread tid [%d] pthread: 0x%lx on processor %d\n", thread->tid, thread->pthread, thread->cpu_id);
+        DBG_LOG(ERROR, "Cannot bind thread tid [%d] pthread: 0x%lx on processor %d\n", thread->tid, thread->pthread, thread->phys_cpu_id);
         return 1;
     }
 

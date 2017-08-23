@@ -22,7 +22,6 @@ Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #include "topology.h"
 #include "interpose.h"
 #include "monotonic_timer.h"
-#include "pflush.h"
 #include "stat.h"
 
 static void init() __attribute__((constructor));
@@ -32,7 +31,6 @@ static physical_topology_t* physical_topology = NULL;
 static virtual_topology_t* virtual_topology = NULL;
 
 void finalize() {
-    int i;
     if (latency_model.enabled) {
         unregister_self();
     }
@@ -53,8 +51,6 @@ void finalize() {
 static int init_perf_model(config_t* cfg)
 {
     cpu_model_t* cpu;
-
-    __cconfig_lookup_bool(cfg, "latency.enable", &latency_model.enabled);
 
     if (init_interposition() != E_SUCCESS) {
         goto error;
@@ -87,7 +83,7 @@ void init()
 
     // we reset LD_PRELOAD to ensure we don't get into recursive preloads when 
     // calling popen during initialization. before exiting we reactivate LD_PRELOAD 
-    // to allow LD_PRELOADS on children
+    // to allow LD_PRELOADs on children
     ld_preload_path = getenv("LD_PRELOAD");
     unsetenv("LD_PRELOAD");
 

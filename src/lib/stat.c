@@ -70,7 +70,8 @@ static void show_thread_stats(thread_t *thread, FILE *out_file) {
     uint64_t cycles;
 
     fprintf(out_file, "\tThread id [%d]\n", thread->tid);
-    fprintf(out_file, "\t\t: cpu id: %d\n", thread->cpu_id);
+    fprintf(out_file, "\t\t: virtual cpu id: %d\n", thread->virtual_cpu_id);
+    fprintf(out_file, "\t\t: physical cpu id: %d\n", thread->phys_cpu_id);
     fprintf(out_file, "\t\t: spawn timestamp: %lu\n", thread->stats.register_timestamp);
     fprintf(out_file, "\t\t: termination timestamp: %lu\n", thread->stats.unregister_timestamp);
     fixed_value = thread->stats.unregister_timestamp > 0 ? (thread->stats.unregister_timestamp - thread->stats.register_timestamp) : 0;

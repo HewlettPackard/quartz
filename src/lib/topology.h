@@ -49,10 +49,11 @@ struct physical_node_s {
     int node_id;
     cpu_model_t* cpu_model;
     pci_regs_t* mc_pci_regs;
-    /** number of node's cpus */
+
+    /** number of node's physical CPUs */
     int num_cpus; 
 
-    /** a bitmask of the node's CPUs */
+    /** a bitmask of the node's physical CPUs */
     struct bitmask* cpu_bitmask; 
 
     /** local memory latency */
@@ -146,6 +147,7 @@ int discover_and_save_physical_topology(const char* filename);
 int system_num_cpus();
 int first_cpu(struct bitmask* bitmask);
 int next_cpu(struct bitmask* bitmask, int cpu_id);
+int virtual_cpu_id_to_phys_cpu_id(virtual_node_t* vnode, int cpu_id);
 
 int create_virtual_topology(config_t* cfg, physical_topology_t* pt, virtual_topology_t** vtp);
 int destroy_virtual_topology(virtual_topology_t* vt);
@@ -165,5 +167,6 @@ virtual_nvm_t* virtual_nvm_iterator_next(virtual_nvm_iterator_t* it);
 int virtual_nvm_iterator_done(virtual_nvm_iterator_t* it);
 
 int bind_process_on_virtual_node(virtual_topology_t* vt, int virtual_node_id);
+int bind_thread_on_virtual_cpu(virtual_topology_t* vt, pid_t tid, int virtual_node_id, int virtual_cpu_id);
 
 #endif /* __TOPOLOGY_H */

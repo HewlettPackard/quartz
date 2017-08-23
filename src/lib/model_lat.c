@@ -19,6 +19,7 @@ Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #include "topology.h"
 #include "model.h"
 #include "monotonic_timer.h"
+#include "pflush.h"
 
 /**
  * \file

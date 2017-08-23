@@ -32,48 +32,25 @@ __thread thread_t* tls_thread = NULL;
 
 extern inline hrtime_t hrtime_cycles(void);
 
-// assign a virtual/physical node using a round-robin policy
-static void rr_next_cpu_id(thread_manager_t* thread_manager, int* next_virtual_node_idp, int* next_cpu_idp)
+// assign a virtual node and cpu using a round-robin policy
+static void rr_next_virtual_cpu_id(thread_manager_t* thread_manager, int* next_virtual_node_idp, int* next_virtual_cpu_idp)
 {
-#if 0
-    int next_virtual_node_id;
-    virtual_node_t* virtual_node;
-    physical_node_t* physical_node;
-    virtual_topology_t* virtual_topology = thread_manager->virtual_topology;
+    virtual_topology_t* vt = thread_manager->virtual_topology;
 
     *next_virtual_node_idp = thread_manager->next_virtual_node_id;
-    *next_cpu_idp = thread_manager->next_cpu_id;
+    *next_virtual_cpu_idp = thread_manager->next_virtual_cpu_id;
 
-    // advance to the next virtual node and cpu id
-    next_virtual_node_id = thread_manager->next_virtual_node_id;
-    virtual_node = &virtual_topology->virtual_nodes[next_virtual_node_id];
-    physical_node = virtual_node->dram_node; // we run threads on the dram node
-    if ((thread_manager->next_cpu_id = next_cpu(physical_node->cpu_bitmask, thread_manager->next_cpu_id + 1)) < 0) {
-        next_virtual_node_id = (next_virtual_node_id + 1) % virtual_topology->num_virtual_nodes;
-        virtual_node = &virtual_topology->virtual_nodes[next_virtual_node_id];
-        physical_node = virtual_node->dram_node;
-        thread_manager->next_cpu_id = first_cpu(physical_node->cpu_bitmask);
-        thread_manager->next_virtual_node_id = next_virtual_node_id;
-    }
-#endif 
+    virtual_node_t* vnode = virtual_node(vt, thread_manager->next_virtual_node_id);
+    thread_manager->next_virtual_cpu_id = (thread_manager->next_virtual_cpu_id + 1) % vnode->dram_node->num_cpus;
 }
 
-int bind_thread_on_cpu(thread_manager_t* thread_manager, thread_t* thread, int virtual_node_id, int cpu_id)
+int __bind_thread_on_virtual_cpu(thread_manager_t* thread_manager, thread_t* thread, int virtual_node_id, int virtual_cpu_id)
 {
-    thread->virtual_node = virtual_node(thread_manager->virtual_topology, virtual_node_id);
-    DBG_LOG(INFO, "Binding thread tid [%d] pthread: 0x%lx on processor %d\n", thread->tid, thread->pthread, cpu_id);
-    struct bitmask* cpubind = numa_allocate_cpumask();
-    numa_bitmask_setbit(cpubind, cpu_id);
-    if (numa_sched_setaffinity(thread->tid, cpubind) != 0) {
-        DBG_LOG(ERROR, "Cannot bind thread tid [%d] pthread: 0x%lx on processor %d\n", thread->tid, thread->pthread, cpu_id);
-        numa_bitmask_free(cpubind);
-        return E_ERROR;
-    }
-    numa_bitmask_free(cpubind);
-    return E_SUCCESS;
+    DBG_LOG(INFO, "Binding thread tid [%d] pthread: 0x%lx on virtual processor %d\n", thread->tid, thread->pthread, virtual_cpu_id);
+    return bind_thread_on_virtual_cpu(thread_manager->virtual_topology, thread->tid, virtual_node_id, virtual_cpu_id);
 }
 
-int bind_thread_on_mem(thread_manager_t* thread_manager, thread_t* thread, int virtual_node_id, int cpu_id)
+int __bind_thread_on_virtual_cpu_mem(thread_manager_t* thread_manager, thread_t* thread, int virtual_node_id, int virtual_cpu_id)
 {
     int physical_node_id;
     struct bitmask* membind = numa_allocate_nodemask();
@@ -131,8 +108,8 @@ static int setup_events_thread_self(thread_t *thread, const char **native_events
 int register_thread(thread_manager_t* thread_manager, pthread_t pthread, pid_t tid)
 {
     int ret = 0;
-    int cpu_id;
     int virtual_node_id;
+    int virtual_cpu_id;
     thread_t* thread = malloc(sizeof(thread_t));
 
     if (thread_manager == NULL) {
@@ -167,18 +144,20 @@ int register_thread(thread_manager_t* thread_manager, pthread_t pthread, pid_t t
     // link the thread to the list of threads
     assert(libpthread_pthread_mutex_lock);
     libpthread_pthread_mutex_lock(&thread_manager->mutex);
-    rr_next_cpu_id(thread_manager, &virtual_node_id, &cpu_id);
-    if ((ret = bind_thread_on_cpu(thread_manager, thread, virtual_node_id, cpu_id)) != E_SUCCESS) {
+    rr_next_virtual_cpu_id(thread_manager, &virtual_node_id, &virtual_cpu_id);
+    if ((ret = __bind_thread_on_virtual_cpu(thread_manager, thread, virtual_node_id, virtual_cpu_id)) != E_SUCCESS) {
     	libpthread_pthread_mutex_unlock(&thread_manager->mutex);
     	DBG_LOG(ERROR, "thread id [%d] failed to bind to CPU\n", thread->tid);
         goto error;
     }
-    if ((ret = bind_thread_on_mem(thread_manager, thread, virtual_node_id, cpu_id)) != E_SUCCESS) {
+    if ((ret = __bind_thread_on_virtual_cpu_mem(thread_manager, thread, virtual_node_id, virtual_cpu_id)) != E_SUCCESS) {
     	libpthread_pthread_mutex_unlock(&thread_manager->mutex);
     	DBG_LOG(ERROR, "thread id [%d] failed to bind to Memory\n", thread->tid);
         goto error;
     }
-    thread->cpu_id = cpu_id;
+    thread->virtual_node = virtual_node(thread_manager->virtual_topology, virtual_node_id);
+    thread->virtual_cpu_id = virtual_cpu_id;
+    thread->phys_cpu_id = virtual_cpu_id_to_phys_cpu_id(thread->virtual_node, virtual_cpu_id);
     thread->cpu_speed_mhz = cpu_speed_mhz();
 #ifdef PAPI_SUPPORT
     cpu_model_t *cpu = thread_manager->virtual_topology->virtual_nodes[virtual_node_id].dram_node->cpu_model;
@@ -335,8 +314,6 @@ int init_thread_manager(config_t* cfg, virtual_topology_t* virtual_topology)
     int ret;
     pthread_t monitor_tid;
     thread_manager_t* mgr;
-    virtual_node_t* vnode;
-    physical_node_t* physical_node;
 
     if (!(mgr = malloc(sizeof(thread_manager_t)))) {
         ret = E_ERROR;
@@ -347,7 +324,12 @@ int init_thread_manager(config_t* cfg, virtual_topology_t* virtual_topology)
 
     mgr->thread_list = NULL;
     mgr->virtual_topology = virtual_topology;
-    mgr->next_virtual_node_id = 0;
+
+    int nodebind;
+    if (__cconfig_lookup_int(cfg, "general.nodebind", &nodebind) == CONFIG_TRUE) {
+        CHECK_ERROR_CODE(bind_process_on_virtual_node(virtual_topology, nodebind));
+    }
+    mgr->next_virtual_node_id = nodebind;
 
     set_epoch_duration(cfg, "latency.max_epoch_duration_us", &mgr->max_epoch_duration_us, MAX_EPOCH_DURATION_US);
     set_epoch_duration(cfg, "latency.min_epoch_duration_us", &mgr->min_epoch_duration_us, MIN_EPOCH_DURATION_US);
@@ -358,9 +340,7 @@ int init_thread_manager(config_t* cfg, virtual_topology_t* virtual_topology)
         mgr->min_epoch_duration_us = MIN_EPOCH_DURATION_US;
     }
 
-    vnode = virtual_node(virtual_topology, mgr->next_virtual_node_id);
-    physical_node = vnode->dram_node;
-    mgr->next_cpu_id = first_cpu(physical_node->cpu_bitmask);
+    mgr->next_virtual_cpu_id = 0;
     pthread_mutex_init(&mgr->mutex, NULL);
 
     // fire a monitoring thread that periodically interrupts threads

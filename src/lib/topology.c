@@ -94,7 +94,27 @@ int first_cpu(struct bitmask* bitmask)
     return next_cpu( bitmask, 0);
 }
 
+/**
+ * \brief Translate virtual cpu node id to physical cpu id
+ *
+ * \todo Make the translation more efficient by keeping an array map.
+ */
+int virtual_cpu_id_to_phys_cpu_id(virtual_node_t* vnode, int cpu_id)
+{
+    int count;
+    int i;
+    struct bitmask* bitmask = vnode->dram_node->cpu_bitmask;
 
+    for (i=0, count=0; i<numa_num_configured_cpus(); i++) {
+        if (numa_bitmask_isbitset(bitmask, i)) {
+            if (count == cpu_id) {
+                return i;
+            }
+            count++;
+        }
+    }
+    return -1;
+}
 
 /** 
  *  \brief Returns a list of memory-controller pci buses
@@ -639,6 +659,7 @@ static void create_virtual_node(virtual_topology_element_t* vte)
     v_node->membind = membind;
     v_node->nvm = (virtual_nvm_t*) vte_nvm->element;
     v_node->dram_node = &vte->vt->pt->physical_nodes[membind];
+
     vte->element = v_node;
 
     return;
@@ -849,3 +870,35 @@ int bind_process_on_virtual_node(virtual_topology_t* vt, int virtual_node_id)
 
     return E_SUCCESS;
 }
+
+int bind_thread_on_virtual_cpu(virtual_topology_t* vt, pid_t tid, int virtual_node_id, int virtual_cpu_id)
+{
+    virtual_node_t* vnode = virtual_node(vt, virtual_node_id);
+    int phys_cpu_id = virtual_cpu_id_to_phys_cpu_id(vnode, virtual_cpu_id);
+    DBG_LOG(INFO, "Binding thread tid %d on virtual processor %d (physical processor %d)\n", tid, virtual_cpu_id, phys_cpu_id);
+    struct bitmask* cpubind = numa_allocate_cpumask();
+    numa_bitmask_setbit(cpubind, virtual_cpu_id);
+    if (numa_sched_setaffinity(tid, cpubind) != 0) {
+        DBG_LOG(ERROR, "Cannot bind thread tid %d on virtual processor %d (physical processor %d)\n", tid, virtual_cpu_id, phys_cpu_id);
+        numa_bitmask_free(cpubind);
+        return E_ERROR;
+    }
+    numa_bitmask_free(cpubind);
+    return E_SUCCESS;
+}
+
+#if 0
+int bind_thread_on_mem(thread_manager_t* thread_manager, thread_t* thread, int virtual_node_id, int cpu_id)
+{
+    int physical_node_id;
+    struct bitmask* membind = numa_allocate_nodemask();
+    virtual_node_t* vnode = virtual_node(thread_manager->virtual_topology, virtual_node_id);
+    physical_node_id = vnode->dram_node->node_id;
+    numa_bitmask_setbit(membind, physical_node_id);
+    numa_set_membind(membind);
+    numa_free_nodemask(membind);
+
+    return E_SUCCESS;
+}
+
+#endif

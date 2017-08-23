@@ -48,6 +48,7 @@ typedef struct {
 extern latency_model_t latency_model;
 
 int init_bandwidth_model(config_t* cfg, struct virtual_topology_s* topology);
+int uninit_bandwidth_model(virtual_topology_t* vt);
 int init_latency_model(config_t* cfg, cpu_model_t* cpu, struct virtual_topology_s* virtual_topology);
 void init_thread_latency_model(thread_t *thread);
 

@@ -189,7 +189,7 @@ uint64_t read_pmc_hw_event_cur(pmc_hw_event_t* event)
 
 uint64_t read_pmc_hw_event_diff(pmc_hw_event_t* event)
 {
-    int cpu_id = thread_self()->cpu_id;
+    int cpu_id = thread_self()->phys_cpu_id;
     uint64_t cur_val = read_pmc_hw_event_cur(event);
     uint64_t last_val = event->last_val[cpu_id];
     if (cur_val < last_val) {

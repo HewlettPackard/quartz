@@ -35,7 +35,8 @@ typedef struct thread_s {
     struct virtual_node_s* virtual_node;
     pthread_t pthread;
     pid_t tid;
-    int cpu_id; // the processor the thread is bound on
+    int virtual_cpu_id; // the virtual processor the thread is bound on
+    int phys_cpu_id; // the physical processor the thread is bound on
     int cpu_speed_mhz;
     struct thread_manager_s* thread_manager;
     struct thread_s* next;
@@ -56,7 +57,7 @@ typedef struct thread_manager_s {
     int max_epoch_duration_us; // maximum epoch duration in microseconds
     int min_epoch_duration_us; // minimum epoch duration in microseconds
     int next_virtual_node_id; // used by the round-robin policy -- next virtual node to run on 
-    int next_cpu_id; // used by the round-robin policy -- next cpu to run on
+    int next_virtual_cpu_id; // used by the round-robin policy -- next cpu to run on
     struct virtual_topology_s* virtual_topology;   
 #ifdef USE_STATISTICS
     stats_t stats;
