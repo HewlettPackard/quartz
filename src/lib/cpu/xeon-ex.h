@@ -41,16 +41,8 @@ int intel_xeon_ex_set_throttle_register(pci_regs_t *regs, throttle_type_t thrott
             offset = 0x190;
     }
 
-    // write to all 4 channels
-
-    // first Activate throttling
-    /*set_pci(bus_id, 0x10, 0x0, 0x190, (uint16_t) val);
-    set_pci(bus_id, 0x10, 0x1, 0x190, (uint16_t) val);
-    set_pci(bus_id, 0x10, 0x4, 0x190, (uint16_t) val);
-    set_pci(bus_id, 0x10, 0x5, 0x190, (uint16_t) val);*/
-
-    // then the Read or Write throttling
     for (i=0; i < regs->channels; ++i) {
+        DBG_LOG(DEBUG, "throttle bus_id 0x%X dev_id 0x%X funct 0x%X channel 0x%X offset 0x%X val 0x%X\n", regs->addr[i].bus_id, regs->addr[i].dev_id, regs->addr[i].funct, i, offset, val);
         set_pci(regs->addr[i].bus_id, regs->addr[i].dev_id, regs->addr[i].funct, offset, (uint16_t) val);
     }
 

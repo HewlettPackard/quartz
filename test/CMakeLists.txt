@@ -13,8 +13,8 @@ add_definitions(-g)
 add_definitions(-Wall)
 #add_definitions(-DNDEBUG)
 
-add_executable(test_interpose ${CMAKE_CURRENT_SOURCE_DIR}/test_interpose.cc)
-target_link_libraries(test_interpose pthread gtest)
+#add_executable(test_interpose ${CMAKE_CURRENT_SOURCE_DIR}/test_interpose.cc)
+#target_link_libraries(test_interpose pthread gtest)
 
 add_executable(test_dev ${CMAKE_CURRENT_SOURCE_DIR}/test_dev.cc)
 target_link_libraries(test_dev pthread nvmemul)

@@ -118,6 +118,15 @@ int virtual_cpu_id_to_phys_cpu_id(virtual_node_t* vnode, int cpu_id)
     return -1;
 }
 
+int memory_controller_id(char* str)
+{
+    int memctr_id;
+    char* memctr = strstr(str, "Memory Controller");
+    if (!memctr) return -1;
+    if (sscanf(memctr, "Memory Controller %d", &memctr_id) != 1) return -1;
+    return memctr_id;
+}
+
 /** 
  *  \brief Returns a list of memory-controller pci buses
  */
@@ -196,9 +205,9 @@ int discover_mc_pci_topology(cpu_model_t* cpu_model, physical_topology_t* physic
         // to figure out where it is attached
         for (i=0; i<dev_count; i++) {
             if (i == b) {
-                cpu_model->get_throttle_register(regs_addr[i], THROTTLE_DDR_ACT, &throttle_reg_val);
-                if (throttle_reg_val < 0x8fff)
-                    cpu_model->set_throttle_register(regs_addr[i], THROTTLE_DDR_ACT, 0x8fff);
+                //cpu_model->get_throttle_register(regs_addr[i], THROTTLE_DDR_ACT, &throttle_reg_val);
+                //if (throttle_reg_val < 0x8fff)
+                cpu_model->set_throttle_register(regs_addr[i], THROTTLE_DDR_ACT, 0x8fff);
             } else {
                 cpu_model->set_throttle_register(regs_addr[i], THROTTLE_DDR_ACT, 0x800f);
             }
@@ -206,9 +215,11 @@ int discover_mc_pci_topology(cpu_model_t* cpu_model, physical_topology_t* physic
         
         // measure local bandwidth of each node
         max_local_rbw = 0;
+        local_node = NULL;
         for (i=0; i<physical_topology->num_nodes; i++) {
             physical_node_t* node_i = &physical_topology->physical_nodes[i];
             rbw = measure_read_bw(node_i->node_id, node_i->node_id);
+            DBG_LOG(DEBUG, "bandwidth cpu node %d mem node %d: bw %lu\n", node_i->node_id, node_i->node_id, (unsigned int) rbw);
             if (rbw > max_local_rbw) {
                 max_local_rbw = rbw;
                 local_node = node_i;

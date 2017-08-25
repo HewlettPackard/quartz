@@ -90,7 +90,8 @@ parse_global(int key, char* arg, struct argp_state* state)
             assert( arg );
 
             if (global->verbosity > 0) {
-                dbg_set_level(DBG_CODE(INFO));
+                //dbg_set_level(DBG_CODE(INFO));
+                dbg_set_level(DBG_CODE(DEBUG));
             }
 
             if(strcmp(arg, "discover") == 0) {
