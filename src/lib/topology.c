@@ -208,8 +208,10 @@ int discover_mc_pci_topology(cpu_model_t* cpu_model, physical_topology_t* physic
                 //cpu_model->get_throttle_register(regs_addr[i], THROTTLE_DDR_ACT, &throttle_reg_val);
                 //if (throttle_reg_val < 0x8fff)
                 cpu_model->set_throttle_register(regs_addr[i], THROTTLE_DDR_ACT, 0x8fff);
+                cpu_model->set_throttle_register(regs_addr[i], THROTTLE_DDR_READ, 0x8fff);
             } else {
                 cpu_model->set_throttle_register(regs_addr[i], THROTTLE_DDR_ACT, 0x800f);
+                cpu_model->set_throttle_register(regs_addr[i], THROTTLE_DDR_READ, 0x800f);
             }
         }
         

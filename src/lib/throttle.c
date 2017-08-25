@@ -97,6 +97,7 @@ int discover_throttle_values(physical_node_t* phys_node, bw_throttle_t** bw_thro
          i++, throttle_reg_val += throttle_increment) 
     {
         phys_node->cpu_model->set_throttle_register(regs, THROTTLE_DDR_ACT, throttle_reg_val);
+        phys_node->cpu_model->set_throttle_register(regs, THROTTLE_DDR_READ, throttle_reg_val);
         best_rate = measure_read_bw(phys_node_id, phys_node_id);
         DBG_LOG(INFO, "throttle reg: 0x%x bandwidth: %f\n", throttle_reg_val, best_rate);
         bw_throttle->throttle_reg_val[i] = throttle_reg_val;
@@ -289,6 +290,7 @@ int __set_read_bw(physical_node_t* node, uint64_t target_bw)
 
     DBG_LOG(INFO, "Setting throttle reg: %d (0x%x), target read bandwidth: %" PRIu64 ", actual read bandwidth: %" PRIu64 "\n", node->bw_throttle->throttle_reg_val[point], node->bw_throttle->throttle_reg_val[point], target_bw, (uint64_t) node->bw_throttle->bw[point]);
     node->cpu_model->set_throttle_register(regs, THROTTLE_DDR_ACT, node->bw_throttle->throttle_reg_val[point]);
+    node->cpu_model->set_throttle_register(regs, THROTTLE_DDR_READ, node->bw_throttle->throttle_reg_val[point]);
 
     return E_SUCCESS;
 }
