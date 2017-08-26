@@ -44,7 +44,7 @@ int intel_xeon_ex_set_throttle_register(pci_regs_t *regs, throttle_type_t thrott
     for (i=0; i < regs->channels; ++i) {
         DBG_LOG(DEBUG2, "throttle bus_id 0x%X dev_id 0x%X funct 0x%X channel 0x%X offset 0x%X val 0x%X\n", regs->addr[i].bus_id, regs->addr[i].dev_id, regs->addr[i].funct, i, offset, val);
         set_pci(regs->addr[i].bus_id, regs->addr[i].dev_id, regs->addr[i].funct, offset, (uint16_t) val);
-        int readval;
+        uint16_t readval;
         get_pci(regs->addr[i].bus_id, regs->addr[i].dev_id, regs->addr[i].funct, offset, &readval);
         if (readval != val) {
             DBG_LOG(WARNING, "throttle value not set\n");

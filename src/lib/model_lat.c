@@ -93,7 +93,6 @@ static int hw_nvm_latency(virtual_node_t* vnode)
 
 static int check_target_latency_against_hw_latency(virtual_topology_t* virtual_topology) {
     int status = 0;
-    int i;
     int hw_latency_dram;
     int hw_latency_nvm;
 
@@ -110,8 +109,8 @@ static int check_target_latency_against_hw_latency(virtual_topology_t* virtual_t
             hw_latency_nvm >= latency_model.read_latency ||
             hw_latency_nvm >= latency_model.write_latency) {
             DBG_LOG(ERROR, "Target read (%d) and write (%d) latency to be emulated must be greater than the "
-            		"hardware latency dram (%d) and virtual nvram (%d) (virtual node %d)\n",
-            		latency_model.read_latency, latency_model.write_latency, hw_latency_dram, hw_latency_nvm, i);
+            		"hardware dram (%d) and virtual nvm (%d) latency\n",
+            		latency_model.read_latency, latency_model.write_latency, hw_latency_dram, hw_latency_nvm);
             status = -1;
             break;
         }
