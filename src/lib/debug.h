@@ -44,7 +44,8 @@ enum dbg_code {
 	DBG_CODE(ERROR)    = 2, // Error
 	DBG_CODE(WARNING)  = 3, // Warning
 	DBG_CODE(INFO)     = 4, // Info
-	DBG_CODE(DEBUG)    = 5, // Debugging
+	DBG_CODE(DEBUG)    = 5, // Debugging level 1
+	DBG_CODE(DEBUG2)    = 6, // Debugging level 2
 };
 
 static const char* dbg_code2str[] = {

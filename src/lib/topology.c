@@ -232,7 +232,7 @@ int discover_mc_pci_topology(cpu_model_t* cpu_model, physical_topology_t* physic
         for (i=0; i<physical_topology->num_nodes; i++) {
             physical_node_t* node_i = &physical_topology->physical_nodes[i];
             rbw = measure_read_bw(node_i->node_id, node_i->node_id);
-            DBG_LOG(DEBUG, "bandwidth cpu node %d mem node %d: bw %lu\n", node_i->node_id, node_i->node_id, (unsigned int) rbw);
+            DBG_LOG(DEBUG, "bandwidth cpu node %d mem node %d: bw %u\n", node_i->node_id, node_i->node_id, (unsigned int) rbw);
             if (rbw > max_local_rbw) {
                 max_local_rbw = rbw;
                 local_node = node_i;
