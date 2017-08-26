@@ -148,6 +148,7 @@ int load_physical_topology(config_t* cfg, physical_topology_t** physical_topolog
 int discover_and_save_physical_topology(const char* filename);
 int num_cpus_node(int node);
 int system_num_cpus();
+int num_cores_per_node();
 int first_cpu(struct bitmask* bitmask);
 int next_cpu(struct bitmask* bitmask, int cpu_id);
 int virtual_cpu_id_to_phys_cpu_id(virtual_node_t* vnode, int cpu_id);

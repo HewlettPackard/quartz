@@ -50,6 +50,30 @@
 extern latency_model_t latency_model;
 
 
+int __cpuinfo(const char* regex) {
+    char buf[512];
+    sprintf(buf, "grep '^%s' /proc/cpuinfo | sort | uniq | wc -l", regex);
+    FILE *cmd = popen(buf, "r");
+
+    if (cmd == NULL)
+        return -1;
+
+    unsigned nprocs;
+    size_t n;
+    char buff[8];
+
+    if ((n = fread(buff, 1, sizeof(buff)-1, cmd)) <= 0)
+        return -1;
+
+    buff[n] = '\0';
+    if (sscanf(buff, "%u", &nprocs) != 1)
+        return -1;
+
+    pclose(cmd);
+
+    return nprocs;
+}
+
 
 int num_cpus(struct bitmask* bitmask) 
 {
@@ -72,6 +96,13 @@ int num_cpus_node(int node)
     numa_free_cpumask(cpumask);
     return n; 
 }
+
+int num_cores_per_node()
+{
+    return __cpuinfo("core id");
+}
+
+
 
 // number of cpus in the system
 int system_num_cpus()

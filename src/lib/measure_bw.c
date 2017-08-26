@@ -226,7 +226,7 @@ double measure_read_bw(int cpu_node, int mem_node)
     array = numa_alloc_onnode(size, mem_node);
     assert(array);
     numa_run_on_node(cpu_node);
-    nthreads = num_cpus_node(cpu_node);
+    nthreads = num_cores_per_node();
     // force allocation of physical pages
     memset(array, 0xff, size);
     bw = timeitp(read_memory_sse, nthreads, array, size, 5, 1);
@@ -244,7 +244,7 @@ double measure_write_bw(int cpu_node, int mem_node)
     array = numa_alloc_onnode(size, mem_node);
     assert(array);
     numa_run_on_node(cpu_node);
-    nthreads = num_cpus_node(cpu_node);
+    nthreads = num_cores_per_node();
     // force allocation of physical pages
     memset(array, 0xff, size);
     bw = timeitp(write_memory_nontemporal_sse, nthreads, array, size, 5, 1);
