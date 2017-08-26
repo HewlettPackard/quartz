@@ -272,7 +272,7 @@ void interrupt_threads(thread_manager_t* manager)
             // this flag must be set before the signal is sent to make sure
             // there will be no race condition
             thread->signaled = 1;
-            pthread_kill(thread->pthread, SIGUSR1);
+            libpthread_pthread_kill(thread->pthread, SIGUSR1);
         }
     }
     assert(libpthread_pthread_mutex_unlock);
@@ -427,14 +427,14 @@ void block_new_epoch() {
     sigset_t set;
     sigemptyset(&set);
     sigaddset(&set, SIGUSR1);
-    pthread_sigmask(SIG_BLOCK, &set, NULL);
+    libpthread_pthread_sigmask(SIG_BLOCK, &set, NULL);
 }
 
 void unblock_new_epoch() {
     sigset_t set;
     sigemptyset(&set);
     sigaddset(&set, SIGUSR1);
-    pthread_sigmask(SIG_UNBLOCK, &set, NULL);
+    libpthread_pthread_sigmask(SIG_UNBLOCK, &set, NULL);
 }
 
 thread_manager_t* get_thread_manager() {

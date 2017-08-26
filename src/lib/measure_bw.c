@@ -17,7 +17,7 @@
 // stream benchmark Copy kernel.
 
 
-//#define SSE4_VERSION
+#define SSE4_VERSION
 
 #ifdef SSE4_VERSION
 
@@ -27,8 +27,11 @@
 #include <pthread.h>
 #include <string.h>
 #include <numa.h>
+
+#include "libpthread.h"
 #include "monotonic_timer.h"
 #include "interpose.h"
+#include "topology.h"
 
 
 
@@ -69,7 +72,7 @@ void* thread_worker(void* arg)
     while (1)
     {
         // *** Barrier ****
-        pthread_barrier_wait(&g_barrier);
+        libpthread_pthread_barrier_wait(&g_barrier);
 
         if (g_done) break;
 
@@ -78,7 +81,7 @@ void* thread_worker(void* arg)
         }
 
         // *** Barrier ****
-        pthread_barrier_wait(&g_barrier);
+        libpthread_pthread_barrier_wait(&g_barrier);
     }
 
     return NULL;
@@ -99,7 +102,7 @@ int timeitp(void (*function)(void*, size_t), int nthreads, void* array, size_t s
     g_times = times;
 
     // create barrier and run threads
-    pthread_barrier_init(&g_barrier, NULL, nthreads);
+    libpthread_pthread_barrier_init(&g_barrier, NULL, nthreads);
 
     pthread_t thr[nthreads];
     //libpthread_pthread_create(&thr[0], NULL, thread_master, new int(0));
@@ -113,7 +116,7 @@ int timeitp(void (*function)(void*, size_t), int nthreads, void* array, size_t s
     thread_num = 0;
     for (i = 0; i < samples; i++) 
     {
-        pthread_barrier_wait(&g_barrier);
+        libpthread_pthread_barrier_wait(&g_barrier);
 
         assert(!g_done);
 
@@ -123,7 +126,7 @@ int timeitp(void (*function)(void*, size_t), int nthreads, void* array, size_t s
             g_func(&((char*)g_array)[g_thrsize * thread_num], g_thrsize);
         }
 
-        pthread_barrier_wait(&g_barrier);
+        libpthread_pthread_barrier_wait(&g_barrier);
         double ts2 = monotonic_time();
 
         runtime = ts2 - ts1;
@@ -133,13 +136,13 @@ int timeitp(void (*function)(void*, size_t), int nthreads, void* array, size_t s
     }
     g_done = 1;
 
-    pthread_barrier_wait(&g_barrier);
+    libpthread_pthread_barrier_wait(&g_barrier);
 
     for (p = 1; p < nthreads; ++p) {
-        pthread_join(thr[p], NULL);
+        libpthread_pthread_join(thr[p], NULL);
     }
 
-    pthread_barrier_destroy(&g_barrier);
+    libpthread_pthread_barrier_destroy(&g_barrier);
 
     return to_bw(size * times, min);
 }
@@ -218,11 +221,12 @@ double measure_read_bw(int cpu_node, int mem_node)
     char* array;
     size_t size = 1024*1024*1024;
     double bw;
-    int nthreads = 16;
+    int nthreads;
 
     array = numa_alloc_onnode(size, mem_node);
     assert(array);
     numa_run_on_node(cpu_node);
+    nthreads = num_cpus_node(cpu_node);
     // force allocation of physical pages
     memset(array, 0xff, size);
     bw = timeitp(read_memory_sse, nthreads, array, size, 5, 1);
@@ -235,11 +239,12 @@ double measure_write_bw(int cpu_node, int mem_node)
     char* array;
     size_t size = 1024*1024*1024;
     double bw;
-    int nthreads = 16;
+    int nthreads;
 
     array = numa_alloc_onnode(size, mem_node);
     assert(array);
     numa_run_on_node(cpu_node);
+    nthreads = num_cpus_node(cpu_node);
     // force allocation of physical pages
     memset(array, 0xff, size);
     bw = timeitp(write_memory_nontemporal_sse, nthreads, array, size, 5, 1);
@@ -300,9 +305,11 @@ double measure_read_bw(int cpu_node, int mem_node)
     //numa_bitmask_setbit(membind, mem_node);
     //numa_bind(membind);
     //numa_free_nodemask(membind);
+
     numa_run_on_node(cpu_node);
 
     omp_set_num_threads(10);
+
 
     // allocate memory dynamically to make sure the data is stored on the expected NUMA node
     a = (double *)numa_alloc_onnode( (N+OFFSET) * sizeof(double), mem_node);
@@ -311,14 +318,14 @@ double measure_read_bw(int cpu_node, int mem_node)
     DBG_LOG(DEBUG, "Measuring read BW on cpu node %d and mem node %d\n", cpu_node, mem_node);
 
     /* Get initial value for system clock. */
-#pragma omp parallel for
+//#pragma omp parallel for
     for (j=0; j<N; j++) {
 	a[j] = (double)random(); //1.0;
 	c[j] = 0.0;
 	}
 
     t = monotonic_time(); //mysecond();
-#pragma omp parallel for
+//#pragma omp parallel for
     for (j = 0; j < N; j++)
 	a[j] = 2.0E0 * a[j];
     t = 1.0E6 * (monotonic_time() - t);
@@ -328,7 +335,7 @@ double measure_read_bw(int cpu_node, int mem_node)
     for (k=0; k<NTIMES; k++)
 	{
 	times[0][k] = monotonic_time(); //mysecond();
-#pragma omp parallel for
+//#pragma omp parallel for
 	for (j=0; j<N; j++)
 	    c[j] = a[j];
 	times[0][k] = monotonic_time() - times[0][k];

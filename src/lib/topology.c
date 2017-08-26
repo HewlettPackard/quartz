@@ -49,6 +49,8 @@
 
 extern latency_model_t latency_model;
 
+
+
 int num_cpus(struct bitmask* bitmask) 
 {
     int i,n;
@@ -60,6 +62,15 @@ int num_cpus(struct bitmask* bitmask)
         }
     }
     return n;
+}
+
+int num_cpus_node(int node)
+{
+    struct bitmask* cpumask = numa_allocate_cpumask();
+    numa_node_to_cpus(node, cpumask);
+    int n = num_cpus(cpumask);
+    numa_free_cpumask(cpumask);
+    return n; 
 }
 
 // number of cpus in the system

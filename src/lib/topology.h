@@ -146,6 +146,7 @@ int physical_topology_from_xml(cpu_model_t* cpu_model, const char* xml_path, phy
 int physical_topology_to_xml(physical_topology_t* physical_topology, const char* xml_path);
 int load_physical_topology(config_t* cfg, physical_topology_t** physical_topology);
 int discover_and_save_physical_topology(const char* filename);
+int num_cpus_node(int node);
 int system_num_cpus();
 int first_cpu(struct bitmask* bitmask);
 int next_cpu(struct bitmask* bitmask, int cpu_id);

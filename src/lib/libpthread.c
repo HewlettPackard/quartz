@@ -15,6 +15,7 @@
 
 #include "libpthread.h"
 
+#include <assert.h>
 #include <dlfcn.h>
 
 int (*libpthread_pthread_create)(pthread_t *thread, const pthread_attr_t *attr,
@@ -23,6 +24,12 @@ int (*libpthread_pthread_mutex_lock)(pthread_mutex_t *mutex);
 int (*libpthread_pthread_mutex_trylock)(pthread_mutex_t *mutex);
 int (*libpthread_pthread_mutex_unlock)(pthread_mutex_t *mutex);
 int (*libpthread_pthread_detach)(pthread_t thread);
+int (*libpthread_pthread_kill)(pthread_t thread, int sig);
+int (*libpthread_pthread_barrier_wait)(pthread_barrier_t *barrier);
+int (*libpthread_pthread_barrier_destroy)(pthread_barrier_t *barrier);
+int (*libpthread_pthread_join)(pthread_t thread, void **value_ptr);
+int (*libpthread_pthread_sigmask)(int how, const sigset_t *set, sigset_t *oldset);
+int (*libpthread_pthread_barrier_init)(pthread_barrier_t * barrier, const pthread_barrierattr_t * attr, unsigned count); 
 
 static void libpthread_init() __attribute__((constructor));
 static void libthread_finalize() __attribute__((destructor));
@@ -31,13 +38,21 @@ static void* libpthread_handle;
 
 void libpthread_init()
 {
-    libpthread_handle = dlopen("libpthread.so", RTLD_NOW);
+    libpthread_handle = dlopen("libpthread.so.0", RTLD_NOW);
+
+    assert(libpthread_handle);
 
     libpthread_pthread_create = dlsym(libpthread_handle, "pthread_create");
     libpthread_pthread_mutex_lock = dlsym(libpthread_handle, "pthread_mutex_lock");
     libpthread_pthread_mutex_trylock = dlsym(libpthread_handle, "pthread_mutex_trylock");
     libpthread_pthread_mutex_unlock = dlsym(libpthread_handle, "pthread_mutex_unlock");
+    libpthread_pthread_join = dlsym(libpthread_handle, "pthread_join");
     libpthread_pthread_detach = dlsym(libpthread_handle, "pthread_detach");
+    libpthread_pthread_kill = dlsym(libpthread_handle, "pthread_kill");
+    libpthread_pthread_barrier_init = dlsym(libpthread_handle, "pthread_barrier_init");
+    libpthread_pthread_barrier_wait = dlsym(libpthread_handle, "pthread_barrier_wait");
+    libpthread_pthread_barrier_destroy = dlsym(libpthread_handle, "pthread_barrier_destroy");
+    libpthread_pthread_sigmask = dlsym(libpthread_handle, "pthread_barrier_sigmask");
 }
 
 void libpthread_finalize() 
