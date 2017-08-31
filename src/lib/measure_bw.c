@@ -219,7 +219,7 @@ void read_memory_sse(void* array, size_t size) {
 double measure_read_bw(int cpu_node, int mem_node)
 {
     char* array;
-    size_t size = 1024*1024*1024;
+    size_t size = 1*1024*1024*1024LLU;
     double bw;
     int nthreads;
 
@@ -229,7 +229,7 @@ double measure_read_bw(int cpu_node, int mem_node)
     nthreads = num_cores_per_node();
     // force allocation of physical pages
     memset(array, 0xff, size);
-    bw = timeitp(read_memory_sse, nthreads, array, size, 5, 1);
+    bw = timeitp(read_memory_sse, nthreads, array, size, 5, 10);
     numa_free(array, size);
     return bw;
 }
@@ -247,7 +247,7 @@ double measure_write_bw(int cpu_node, int mem_node)
     nthreads = num_cores_per_node();
     // force allocation of physical pages
     memset(array, 0xff, size);
-    bw = timeitp(write_memory_nontemporal_sse, nthreads, array, size, 5, 1);
+    bw = timeitp(write_memory_nontemporal_sse, nthreads, array, size, 5, 100);
     numa_free(array, size);
     return bw;
 }
