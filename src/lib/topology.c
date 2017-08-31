@@ -19,6 +19,8 @@
  *  Constructs a virtual topology
  */
 
+#include "topology.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -29,6 +31,7 @@
 #include <sys/types.h>
 
 #include <numa.h>
+#include <uthash.h>
 #include <libxml/encoding.h>
 #include <libxml/xmlreader.h>
 #include <libxml/xmlwriter.h>
@@ -39,7 +42,6 @@
 #include "graph.h"
 #include "measure.h"
 #include "misc.h"
-#include "topology.h"
 #include "model.h"
 #include "throttle.h"
 
@@ -782,9 +784,9 @@ int create_virtual_topology(config_t* cfg, physical_topology_t* pt, virtual_topo
             vte->dep = NULL;
             vte->vt = vt;
             vt->elements_ar[i] = vte;
-            HASH_ADD_STR(vt->elements_ht, name, vte);
+            HASH_ADD_KEYPTR(hh, vt->elements_ht, vte->name, strlen(vte->name), vte);
         }
- 
+    
         /* add dependencies between virtual topology element objects */
         for (i = 0; i < vt->num_elements; ++i) {
             config_setting_t *element = config_setting_get_elem(setting, i);

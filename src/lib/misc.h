@@ -16,6 +16,9 @@
 #ifndef __MISC_H
 #define __MISC_H
 
+#include <sys/stat.h>
+#include <sys/types.h>
+
 size_t string_to_size(const char* str);
 int string_prefix(const char *pre, const char *str);
 

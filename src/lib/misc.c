@@ -14,10 +14,12 @@
  */
 
 #include <ctype.h>
+#include <dirent.h>
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <errno.h>
 
 size_t string_to_size(const char* str)
 {
@@ -50,3 +52,45 @@ int string_prefix(const char *pre, const char *str)
 {
     return strncmp(pre, str, strlen(pre)) == 0;
 }
+
+static int direxists(const char* path)
+{
+    DIR* dir = opendir("mydir");
+    if (dir) {
+        closedir(dir);
+        return 1;
+    }
+    else if (ENOENT == errno)
+    {
+        return 0;
+    }
+    /* opendir failed for some other reason */
+    return -1;
+}
+
+int mkdir_recursive(const char *dir, mode_t mode) {
+    char tmp[256];
+    char *p = NULL;
+    size_t len;
+
+    snprintf(tmp, sizeof(tmp),"%s",dir);
+    len = strlen(tmp);
+    if(tmp[len - 1] == '/') {
+        tmp[len - 1] = 0;
+    }
+    for(p = tmp + 1; *p; p++) {
+        if(*p == '/') {
+            *p = 0;
+            if (direxists(tmp) == 0) {
+                mkdir(tmp, mode);
+            }
+            *p = '/';
+        }
+    }
+    if (direxists(tmp) == 0) {
+        mkdir(tmp, mode);
+    }
+    return 0;
+}
+
+

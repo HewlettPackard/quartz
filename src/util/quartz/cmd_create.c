@@ -39,6 +39,7 @@
 
 #include "error.h"
 #include "cpu/cpu.h"
+#include "misc.h"
 #include "topology.h"
 
 #include "common.h"
@@ -123,7 +124,7 @@ static void create_nvm(virtual_topology_element_t* vte)
 
     DBG_LOG(INFO, "Create nvm %s size %zu membind %d\n", path, size, membind);
 
-    if (!mkdir(path, S_IRWXU)) {
+    if (mkdir_recursive(path, S_IRWXU) < 0) {
         DBG_LOG(ERROR, "%s\n", strerror(errno));
         return;
     }
