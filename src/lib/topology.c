@@ -44,6 +44,7 @@
 #include "misc.h"
 #include "model.h"
 #include "throttle.h"
+#include "vector.h"
 
 #define MAX_NUM_MC_PCI_BUS 16
 
@@ -149,7 +150,7 @@ int virtual_cpu_id_to_phys_cpu_id(virtual_node_t* vnode, int cpu_id)
 {
     int count;
     int i;
-    struct bitmask* bitmask = vnode->dram_node->cpu_bitmask;
+    struct bitmask* bitmask = vnode->cpumask;
 
     for (i=0, count=0; i<numa_num_configured_cpus(); i++) {
         if (numa_bitmask_isbitset(bitmask, i)) {
@@ -320,6 +321,7 @@ int discover_physical_topology(cpu_model_t* cpu_model, physical_topology_t** phy
         numa_node_to_cpus(n, pt->physical_nodes[n].cpu_bitmask);
         pt->physical_nodes[n].num_cpus = num_cpus(pt->physical_nodes[n].cpu_bitmask);
         pt->physical_nodes[n].latencies = calloc(pt->num_nodes, sizeof(*pt->physical_nodes[n].latencies));
+        pt->physical_nodes[n].num_vrefs = 0;
     }    
 
     if ((rc = discover_mc_pci_topology(cpu_model, pt)) != E_SUCCESS) {
@@ -545,6 +547,7 @@ static void physical_node_from_xml(xmlNode* root, cpu_model_t* cpu_model, physic
     pt->physical_nodes[node_id].cpu_model = cpu_model;
     numa_node_to_cpus(node_id, pt->physical_nodes[node_id].cpu_bitmask);
     pt->physical_nodes[node_id].num_cpus = num_cpus(pt->physical_nodes[node_id].cpu_bitmask);
+    pt->physical_nodes[node_id].num_vrefs = 0;
 
     for (cur_node = root->children; cur_node; cur_node = cur_node->next) {
         if (cur_node->type == XML_ELEMENT_NODE) {
@@ -667,8 +670,8 @@ int discover_and_save_physical_topology(const char* filename)
 
 void crawl_virtual_topology(
     virtual_topology_t* vt,
-    void (*node_cb)(virtual_topology_element_t* vte),
-    void (*nvm_cb)(virtual_topology_element_t* vte))
+    void (*node_cb)(virtual_topology_element_t* vte, void* arg), void* node_cb_arg,
+    void (*nvm_cb)(virtual_topology_element_t* vte, void* arg), void* nvm_cb_arg)
 {
     virtual_topology_element_t* cur_vte;
     virtual_topology_element_t* tmp;
@@ -688,17 +691,17 @@ void crawl_virtual_topology(
         int v = topo_sort[i];
         virtual_topology_element_t* vte = vt->elements_ar[v];
         if (node_cb && string_prefix("node", vte->name)) {
-            node_cb(vte);
+            node_cb(vte, node_cb_arg);
             continue;
         }
         if (nvm_cb && string_prefix("nvm", vte->name)) {
-            nvm_cb(vte);
+            nvm_cb(vte, nvm_cb_arg);
             continue;
         }
     }
 }
 
-static void create_virtual_node(virtual_topology_element_t* vte)
+static void create_virtual_node(virtual_topology_element_t* vte, void* arg)
 {
     int id;
     int cpunodebind;
@@ -715,20 +718,52 @@ static void create_virtual_node(virtual_topology_element_t* vte)
     virtual_topology_element_t* vte_nvm;
     HASH_FIND_STR(vte->vt->elements_ht, nvmbind, vte_nvm);
 
-    virtual_node_t* v_node = malloc(sizeof(*v_node));
-    v_node->name = vte->name;
-    v_node->node_id = id;
-    v_node->cpunodebind = cpunodebind;
-    v_node->membind = membind;
-    v_node->nvm = (virtual_nvm_t*) vte_nvm->element;
-    v_node->dram_node = &vte->vt->pt->physical_nodes[membind];
+    virtual_node_t* vnode = malloc(sizeof(*vnode));
+    vnode->name = vte->name;
+    vnode->node_id = id;
+    vnode->cpunodebind = cpunodebind;
+    vnode->membind = membind;
+    vnode->nvm = (virtual_nvm_t*) vte_nvm->element;
+    vnode->dram_node = &vte->vt->pt->physical_nodes[membind];
+    vnode->sibling_id = vnode->dram_node->num_vrefs;
+    vnode->dram_node->num_vrefs++;
 
-    vte->element = v_node;
+    vte->element = vnode;
 
     return;
 }
 
-static void create_virtual_nvm(virtual_topology_element_t* vte)
+static void assign_cpumask_to_virtual_node(virtual_topology_element_t* vte, void* arg)
+{
+    virtual_node_t* vnode = vte->element;
+    int count;
+    int i;
+    struct bitmask* node_bitmask = vnode->dram_node->cpu_bitmask;
+    int node_numcpus = vnode->dram_node->num_cpus;
+    int node_numcores = num_cores_per_node();
+    int ht = node_numcpus == node_numcores ? 0 : 1;
+    int numcores = node_numcores / vnode->dram_node->num_vrefs;
+    vnode->cpumask = numa_allocate_cpumask();
+
+    for (i=0, count=0; i<numa_num_configured_cpus(); i++) {
+        if (numa_bitmask_isbitset(node_bitmask, i)) {
+            if (count >= vnode->sibling_id*numcores && 
+                count < (vnode->sibling_id+1)*numcores) 
+            {
+                numa_bitmask_setbit(vnode->cpumask, i);
+            }
+            if (ht &&
+                count >= vnode->sibling_id*numcores + node_numcores && 
+                count < (vnode->sibling_id+1)*numcores + node_numcores) 
+            {
+                numa_bitmask_setbit(vnode->cpumask, i);
+            }
+            count++;
+        }
+    }
+}
+
+static void create_virtual_nvm(virtual_topology_element_t* vte, void* arg)
 {
     int id;
     const char* mountpath;
@@ -742,14 +777,16 @@ static void create_virtual_nvm(virtual_topology_element_t* vte)
     }
     sscanf(vte->name, "nvm%d", &id);
 
-    virtual_nvm_t* v_nvm = malloc(sizeof(*v_nvm));
-    v_nvm->name = vte->name;
-    v_nvm->nvm_id = id;
-    v_nvm->size = string_to_size(sizestr);
-    v_nvm->mountpath = mountpath;
-    v_nvm->membind = membind;
-    v_nvm->phys_node = &vte->vt->pt->physical_nodes[membind];
-    vte->element = v_nvm;
+    virtual_nvm_t* vnvm = malloc(sizeof(*vnvm));
+    vnvm->name = vte->name;
+    vnvm->nvm_id = id;
+    vnvm->size = string_to_size(sizestr);
+    vnvm->mountpath = mountpath;
+    vnvm->membind = membind;
+    vnvm->phys_node = &vte->vt->pt->physical_nodes[membind];
+    vnvm->phys_node->num_vrefs++;
+
+    vte->element = vnvm;
 
     return;
 }
@@ -810,8 +847,10 @@ int create_virtual_topology(config_t* cfg, physical_topology_t* pt, virtual_topo
         }
 
         /* create all virtual topology element objects */
-        crawl_virtual_topology(vt, create_virtual_node, create_virtual_nvm);
+        crawl_virtual_topology(vt, create_virtual_node, NULL, create_virtual_nvm, NULL);
 
+        /* assign cpu bitmasks to virtual nodes */
+        crawl_virtual_topology(vt, assign_cpumask_to_virtual_node, NULL, NULL, NULL);
     }
 
     *vtp = vt;    
@@ -823,6 +862,49 @@ int destroy_virtual_topology(virtual_topology_t* vt)
 {
     // TODO: deallocate memory associated with all virtual topology objects
     return E_SUCCESS;
+}
+
+static void visualize_virtual_node(virtual_topology_element_t* vte, void* arg)
+{
+    FILE *stream = (FILE*) arg;
+    int i;
+
+    virtual_node_t* vnode = vte->element;
+
+    fprintf(stream, "node %s cpus: ", vnode->name);
+    for (i=0; i<numa_num_configured_cpus(); i++) {
+        if (numa_bitmask_isbitset(vnode->cpumask, i)) {
+            fprintf(stream, "%d ", i);
+        }
+    }
+    fprintf(stream, "\n");
+}
+
+static void add_virtual_element_to_vector(virtual_topology_element_t* vte, void* arg)
+{
+    vector_t* v = arg;
+    vector_add(v, vte);
+}
+
+static int compar_elem_name(const void *a, const void *b)
+{
+    const virtual_topology_element_t*const* vte_a = a;
+    const virtual_topology_element_t*const* vte_b = b;
+
+    return strcmp((*vte_a)->name, (*vte_b)->name);
+}
+
+void visualize_virtual_topology(FILE* stream, virtual_topology_t* vt)
+{
+    int i;
+    vector_t v;
+
+    vector_init(&v);
+    crawl_virtual_topology(vt, add_virtual_element_to_vector, &v, NULL, NULL);
+    qsort(v.data, vector_count(&v), sizeof(void*), compar_elem_name);
+    for (i=0; i<vector_count(&v); i++) {
+        visualize_virtual_node(v.data[i], stream);
+    }
 }
 
 virtual_node_t* virtual_node(virtual_topology_t* vt, int node_id)

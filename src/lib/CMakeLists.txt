@@ -26,6 +26,7 @@ set(quartzcore_src
     thread.c
     throttle.c
     topology.c
+    vector.c
 )
 
 set(nvmemul_src

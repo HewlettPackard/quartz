@@ -13,6 +13,8 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
+#define _XOPEN_SOURCE
+
 #include <argp.h>
 #include <assert.h>
 #include <errno.h>
@@ -23,9 +25,11 @@
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <utmp.h>
 #include <attr/xattr.h>
 #include <sys/mman.h>
 #include <sys/mount.h>
+#include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/types.h>
 
@@ -35,6 +39,7 @@
 
 #include "error.h"
 #include "cpu/cpu.h"
+#include "misc.h"
 #include "topology.h"
 
 #include "common.h"
@@ -49,15 +54,12 @@ struct arg_cmd
 
 static struct argp_option opt_cmd[] =
 {
-    { "physical", 'p', "FILE", 0,
-        "Physical topology xml file." },
-
     { 0 }
 };
 
 static char doc_cmd[] =
   "\n"
-  "Create virtual topology defined in FILE."
+  "Visualize virtual topology defined in FILE."
   "\v"
   ;
 
@@ -71,9 +73,6 @@ parse_cmd(int key, char* arg, struct argp_state* state)
 
     switch(key)
     {
-        case 'c':
-            argd->virtual_topo_cfg_filename = arg;
-            break;
         case ARGP_KEY_ARG:
             argd->virtual_topo_cfg_filename = arg;
             break;
@@ -93,23 +92,7 @@ static struct argp argp_cmd =
     doc_cmd
 };
 
-static void destroy_nvm(virtual_topology_element_t* vte, void* arg)
-{
-    assert(vte);
-    assert(vte->element);
-
-    virtual_nvm_t* v_nvm = vte->element;
-
-    const char* path = v_nvm->mountpath;
-    size_t size = v_nvm->size;
-    int membind = v_nvm->membind;
-
-    DBG_LOG(INFO, "Destroy nvm %s size %zu membind %d\n", path, size, membind);
-
-    umount(path);
-}
-
-void cmd_destroy(struct argp_state* state)
+void cmd_show(struct argp_state* state)
 {
     struct arg_cmd argd = { 0, 0, 0};
     int    argc = state->argc - state->next + 1;
@@ -118,12 +101,12 @@ void cmd_destroy(struct argp_state* state)
 
     argd.global = state->input;
 
-    argv[0] = malloc(strlen(state->name) + strlen(" destroy") + 1);
+    argv[0] = malloc(strlen(state->name) + strlen(" show") + 1);
 
     if(!argv[0])
         argp_failure(state, 1, ENOMEM, 0);
 
-    sprintf(argv[0], "%s destroy", state->name);
+    sprintf(argv[0], "%s show", state->name);
 
     argp_parse(&argp_cmd, argc, argv, ARGP_IN_ORDER, &argc, &argd);
 
@@ -136,8 +119,6 @@ void cmd_destroy(struct argp_state* state)
     if (!argd.virtual_topo_cfg_filename) {
         argp_usage (state);
     }
-
-    check_running_as_root();
 
     config_t cfg;
     config_init(&cfg);
@@ -154,7 +135,7 @@ void cmd_destroy(struct argp_state* state)
 
     load_physical_topology(&cfg, &pt);
     create_virtual_topology(&cfg, pt, &vt);
-    crawl_virtual_topology(vt, NULL, NULL, destroy_nvm, NULL);
+    visualize_virtual_topology(stdout, vt);
     destroy_virtual_topology(vt);
 
     return;

@@ -58,6 +58,9 @@ struct physical_node_s {
     /** a bitmask of the node's physical CPUs */
     struct bitmask* cpu_bitmask; 
 
+    /** number of virtual elements referencing this physical node */
+    int num_vrefs;
+
     /** local memory latency */
     int local_latency; 
 
@@ -89,6 +92,16 @@ typedef struct virtual_node_s {
     int membind;
     struct physical_node_s* dram_node;
     struct virtual_nvm_s* nvm;
+
+    /** a bitmask of the node's physical CPUs */
+    struct bitmask* cpumask;
+
+    /** 
+     * id relative to other sibling nodes bound to the same underlying 
+     * physical cpu node 
+     */
+    int sibling_id;
+
 } virtual_node_t;
 
 struct virtual_topology_element_s {
@@ -157,8 +170,9 @@ int create_virtual_topology(config_t* cfg, physical_topology_t* pt, virtual_topo
 int destroy_virtual_topology(virtual_topology_t* vt);
 void crawl_virtual_topology(
     virtual_topology_t* vt, 
-    void (*node_cb)(virtual_topology_element_t* vte), 
-    void (*nvm_cb)(virtual_topology_element_t* vte));
+    void (*node_cb)(virtual_topology_element_t* vte, void* arg), void* node_cb_arg,
+    void (*nvm_cb)(virtual_topology_element_t* vte, void* arg), void* nvm_cb_arg);
+void visualize_virtual_topology(FILE* stream, virtual_topology_t* vt);
 
 virtual_node_t* virtual_node(virtual_topology_t* vt, int node_id);
 

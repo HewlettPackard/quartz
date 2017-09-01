@@ -33,6 +33,7 @@
 extern void cmd_discover(struct argp_state* state);
 extern void cmd_create(struct argp_state* state);
 extern void cmd_destroy(struct argp_state* state);
+extern void cmd_show(struct argp_state* state);
 
 const char *argp_program_version = "x, version 0.1";
 const char *argp_program_bug_address = "haris.volos@hpe.com";
@@ -66,6 +67,8 @@ static char doc_global[] =
   "Supported commands are:\n"
   "  discover  Find out machine physical topology.\n"
   "  create    Create emulation virtual topology.\n"
+  "  destroy   Destroy emulation virtual topology.\n"
+  "  show      Visualize emulation virtual topology.\n"
   ;
 
 static error_t
@@ -102,6 +105,9 @@ parse_global(int key, char* arg, struct argp_state* state)
             } 
             else if(strcmp(arg, "destroy") == 0) {
                 cmd_destroy(state);
+            }
+            else if(strcmp(arg, "show") == 0) {
+                cmd_show(state);
             } else {
                 argp_error(state, "%s is not a valid command", arg);
             }

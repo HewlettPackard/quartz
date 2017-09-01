@@ -54,9 +54,6 @@ struct arg_cmd
 
 static struct argp_option opt_cmd[] =
 {
-    { "physical", 'p', "FILE", 0,
-        "Physical topology xml file." },
-
     { 0 }
 };
 
@@ -111,7 +108,7 @@ static int mount_tmpfs(const char* path, size_t size, int membind)
     return E_SUCCESS; 
 }
 
-static void create_nvm(virtual_topology_element_t* vte)
+static void create_nvm(virtual_topology_element_t* vte, void* arg)
 {
     assert(vte);
     assert(vte->element);
@@ -177,7 +174,7 @@ void cmd_create(struct argp_state* state)
 
     load_physical_topology(&cfg, &pt);
     create_virtual_topology(&cfg, pt, &vt);
-    crawl_virtual_topology(vt, NULL, create_nvm);
+    crawl_virtual_topology(vt, NULL, NULL, create_nvm, NULL);
     destroy_virtual_topology(vt);
 
     return;

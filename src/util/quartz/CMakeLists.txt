@@ -2,6 +2,7 @@ set(src
     cmd_create.c
     cmd_destroy.c
     cmd_discover.c
+    cmd_show.c
 	common.c
     main.c
 )
