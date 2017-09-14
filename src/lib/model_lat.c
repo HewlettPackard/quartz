@@ -124,11 +124,15 @@ int init_latency_model(config_t* cfg, cpu_model_t* cpu, virtual_topology_t* virt
 
     __cconfig_lookup_bool(cfg, "latency.enable", &latency_model.enabled);
 
-    if (!latency_model.enabled) return E_SUCCESS;
+    if (!latency_model.enabled) {
+        fam_init(cfg, cpu_speed_mhz());
+        return E_SUCCESS;
+    }
 
     DBG_LOG(INFO, "Initializing memory latency model\n");
 
     memset(&latency_model, 0, sizeof(latency_model_t));
+    latency_model.enabled = 1;
 
     __cconfig_lookup_int(cfg, "latency.read", &latency_model.read_latency);
     __cconfig_lookup_int(cfg, "latency.write", &latency_model.write_latency);

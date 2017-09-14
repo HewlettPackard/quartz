@@ -66,6 +66,11 @@ static int init_perf_model(config_t* cfg)
     CHECK_ERROR_CODE2(load_physical_topology(cfg, &physical_topology), goto error);
     CHECK_ERROR_CODE2(create_virtual_topology(cfg, physical_topology, &virtual_topology), goto error);
 
+    int nodebind;
+    if (__cconfig_lookup_int(cfg, "general.nodebind", &nodebind) == CONFIG_TRUE) {
+        CHECK_ERROR_CODE2(bind_process_on_virtual_node(virtual_topology, nodebind), goto error);
+    }
+
     CHECK_ERROR_CODE2(init_bandwidth_model(cfg, virtual_topology), goto error);
     CHECK_ERROR_CODE2(init_latency_model(cfg, cpu, virtual_topology), goto error);
 
