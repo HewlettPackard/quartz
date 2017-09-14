@@ -52,7 +52,7 @@ void libpthread_init()
     libpthread_pthread_barrier_init = dlsym(libpthread_handle, "pthread_barrier_init");
     libpthread_pthread_barrier_wait = dlsym(libpthread_handle, "pthread_barrier_wait");
     libpthread_pthread_barrier_destroy = dlsym(libpthread_handle, "pthread_barrier_destroy");
-    libpthread_pthread_sigmask = dlsym(libpthread_handle, "pthread_barrier_sigmask");
+    libpthread_pthread_sigmask = dlsym(libpthread_handle, "pthread_sigmask");
 }
 
 void libpthread_finalize() 
