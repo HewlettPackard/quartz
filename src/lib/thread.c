@@ -43,7 +43,7 @@ static void rr_next_virtual_cpu_id(thread_manager_t* thread_manager, int* next_v
     *next_virtual_cpu_idp = thread_manager->next_virtual_cpu_id;
 
     virtual_node_t* vnode = virtual_node(vt, thread_manager->next_virtual_node_id);
-    thread_manager->next_virtual_cpu_id = (thread_manager->next_virtual_cpu_id + 1) % vnode->dram_node->num_cpus;
+    thread_manager->next_virtual_cpu_id = (thread_manager->next_virtual_cpu_id + 1) % num_cpus(vnode->cpumask);
 }
 
 int __bind_thread_on_virtual_cpu(thread_manager_t* thread_manager, thread_t* thread, int virtual_node_id, int virtual_cpu_id)
@@ -160,6 +160,7 @@ int register_thread(thread_manager_t* thread_manager, pthread_t pthread, pid_t t
     thread->virtual_node = virtual_node(thread_manager->virtual_topology, virtual_node_id);
     thread->virtual_cpu_id = virtual_cpu_id;
     thread->phys_cpu_id = virtual_cpu_id_to_phys_cpu_id(thread->virtual_node, virtual_cpu_id);
+    assert(thread->phys_cpu_id != -1);
     thread->cpu_speed_mhz = cpu_speed_mhz();
 #ifdef PAPI_SUPPORT
     cpu_model_t *cpu = thread_manager->virtual_topology->virtual_nodes[virtual_node_id].dram_node->cpu_model;
