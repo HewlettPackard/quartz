@@ -54,6 +54,8 @@ void bw_throttle_reset(physical_node_t* phys_node)
 {
     pci_regs_t *regs = phys_node->mc_pci_regs;
     phys_node->cpu_model->set_throttle_register(regs, THROTTLE_DDR_ACT, 0x8FFF);
+    phys_node->cpu_model->set_throttle_register(regs, THROTTLE_DDR_READ, 0x8FFF);
+    phys_node->cpu_model->set_throttle_register(regs, THROTTLE_DDR_WRITE, 0x8FFF);
 }
 
 /**
