@@ -20,6 +20,9 @@
 #include <string.h>
 #include <stdio.h>
 #include <errno.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+
 
 size_t string_to_size(const char* str)
 {
@@ -55,7 +58,7 @@ int string_prefix(const char *pre, const char *str)
 
 static int direxists(const char* path)
 {
-    DIR* dir = opendir("mydir");
+    DIR* dir = opendir(path);
     if (dir) {
         closedir(dir);
         return 1;
@@ -72,6 +75,7 @@ int mkdir_recursive(const char *dir, mode_t mode) {
     char tmp[256];
     char *p = NULL;
     size_t len;
+    int ret;
 
     snprintf(tmp, sizeof(tmp),"%s",dir);
     len = strlen(tmp);
@@ -88,7 +92,9 @@ int mkdir_recursive(const char *dir, mode_t mode) {
         }
     }
     if (direxists(tmp) == 0) {
-        mkdir(tmp, mode);
+        if ((ret = mkdir(tmp, mode)) != 0) {
+            return ret;
+        }
     }
     return 0;
 }
