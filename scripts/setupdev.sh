@@ -18,8 +18,18 @@ NVM_EMUL_PATH="`dirname $0`/.."
 device_name="nvmemul"
 device_module_name=${device_name}".ko"
 device_path="/dev/${device_name}"
-device_module_path=`find ${NVM_EMUL_PATH}/build -name ${device_module_name}`
 
+function find_device_module_path {
+    if [ ! -z "$1" ]; then
+        hint=${NVM_EMUL_PATH}/$1
+    else
+        hint=${NVM_EMUL_PATH}/build
+    fi  
+    device_module_path=`find $hint -name ${device_module_name}`
+    echo $device_module_path
+}
+
+device_module_path=$(find_device_module_path $2)
 
 function loaddev {
     if [ -z "${device_module_path}" ]; then
