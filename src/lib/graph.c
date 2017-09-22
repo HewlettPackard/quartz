@@ -232,6 +232,7 @@ static struct queue* queue_create(size_t size)
     q->elem = calloc(size, sizeof(*q->elem));
     q->rear = -1;
     q->front = -1;
+    q->size = size;
 
     return q;
 }
