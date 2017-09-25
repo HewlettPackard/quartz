@@ -1022,7 +1022,7 @@ int bind_thread_on_virtual_cpu(virtual_topology_t* vt, pid_t tid, int virtual_no
     int phys_cpu_id = virtual_cpu_id_to_phys_cpu_id(vnode, virtual_cpu_id);
     DBG_LOG(INFO, "Binding thread tid %d on virtual processor %d (physical processor %d)\n", tid, virtual_cpu_id, phys_cpu_id);
     struct bitmask* cpubind = numa_allocate_cpumask();
-    numa_bitmask_setbit(cpubind, virtual_cpu_id);
+    numa_bitmask_setbit(cpubind, phys_cpu_id);
     if (numa_sched_setaffinity(tid, cpubind) != 0) {
         DBG_LOG(ERROR, "Cannot bind thread tid %d on virtual processor %d (physical processor %d)\n", tid, virtual_cpu_id, phys_cpu_id);
         numa_bitmask_free(cpubind);
@@ -1031,19 +1031,3 @@ int bind_thread_on_virtual_cpu(virtual_topology_t* vt, pid_t tid, int virtual_no
     numa_bitmask_free(cpubind);
     return E_SUCCESS;
 }
-
-#if 0
-int bind_thread_on_mem(thread_manager_t* thread_manager, thread_t* thread, int virtual_node_id, int cpu_id)
-{
-    int physical_node_id;
-    struct bitmask* membind = numa_allocate_nodemask();
-    virtual_node_t* vnode = virtual_node(thread_manager->virtual_topology, virtual_node_id);
-    physical_node_id = vnode->dram_node->node_id;
-    numa_bitmask_setbit(membind, physical_node_id);
-    numa_set_membind(membind);
-    numa_free_nodemask(membind);
-
-    return E_SUCCESS;
-}
-
-#endif

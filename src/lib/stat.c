@@ -72,6 +72,8 @@ static void show_thread_stats(thread_t *thread, FILE *out_file) {
     uint64_t cycles;
 
     fprintf(out_file, "\tThread id [%d]\n", thread->tid);
+    fprintf(out_file, "\t\t: virtual node id: %d\n", thread->virtual_node->node_id);
+    fprintf(out_file, "\t\t: physical node id: %d\n", thread->virtual_node->cpunodebind);
     fprintf(out_file, "\t\t: virtual cpu id: %d\n", thread->virtual_cpu_id);
     fprintf(out_file, "\t\t: physical cpu id: %d\n", thread->phys_cpu_id);
     fprintf(out_file, "\t\t: spawn timestamp: %lu\n", thread->stats.register_timestamp);
