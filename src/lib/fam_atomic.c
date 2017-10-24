@@ -13,13 +13,11 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
+#include "fam_atomic_model.h"
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include "quartz/fam_atomic.h"
-#include "config.h"
-#include "error.h"
-#include "queue.h"
 
 #define LOCK_PREFIX_HERE                  \
 	".pushsection .smp_locks,\"a\"\n" \
@@ -36,13 +34,6 @@
 
 #define u32 unsigned int
 #define u64 unsigned long long
-
-typedef struct {
-    queue_t reqs;
-
-} fam_thread_t;
-
-__thread fam_thread_t* fam_tls_thread = NULL;
 
 void fam_atomic_compare_exchange_wrong_size(void);
 void fam_atomic_xadd_wrong_size(void);
@@ -129,100 +120,6 @@ do {						\
 #define cmpxchg(ptr, old, new)	__x86_cmpxchg(ptr, old, new, sizeof(*(ptr)))
 #define cmpxchg16(p1, p2, o1, o2, n1, n2) \
 	__x86_cmpxchg16(LOCK_PREFIX, p1, p2, o1, o2, n1, n2)
-
-typedef struct {
-    int invalidate_enabled;
-    int invalidate_latency;
-    int persist_enabled;
-    int persist_latency;
-    int atomic_latency;
-    int atomic_parallelism;
-    int cpu_speed_mhz;
-} fam_model_t;
-
-
-static fam_model_t fam_model; 
-
-int fam_init(config_t* cfg, int cpu_speed_mhz)
-{
-    __cconfig_lookup_bool(cfg, "fam.invalidate", &fam_model.invalidate_enabled);
-    __cconfig_lookup_int(cfg, "fam.invalidate_latency", &fam_model.invalidate_latency);
-    __cconfig_lookup_bool(cfg, "fam.persist", &fam_model.persist_enabled);
-    __cconfig_lookup_int(cfg, "fam.persist_latency", &fam_model.persist_latency);
-    __cconfig_lookup_int(cfg, "fam.atomic_latency", &fam_model.atomic_latency);
-    __cconfig_lookup_int(cfg, "fam.atomic_parallelism", &fam_model.atomic_parallelism);
-
-    fam_model.cpu_speed_mhz = cpu_speed_mhz;
-
-    return E_SUCCESS;
-}
-
-typedef uint64_t hrtime_t;
-
-#if defined(__i386__)
-
-static inline unsigned long long asm_rdtsc(void)
-{
-    unsigned long long int x;
-    __asm__ volatile (".byte 0x0f, 0x31" : "=A" (x));
-    return x;
-}
-
-static inline unsigned long long asm_rdtscp(void)
-{
-        unsigned hi, lo;
-    __asm__ __volatile__ ("rdtscp" : "=a"(lo), "=d"(hi)::"ecx");
-    return ( (unsigned long long)lo)|( ((unsigned long long)hi)<<32 );
-
-}
-#elif defined(__x86_64__)
-
-static inline unsigned long long asm_rdtsc(void)
-{
-    unsigned hi, lo;
-    __asm__ __volatile__ ("rdtsc" : "=a"(lo), "=d"(hi));
-    return ( (unsigned long long)lo)|( ((unsigned long long)hi)<<32 );
-}
-
-static inline unsigned long long asm_rdtscp(void)
-{
-    unsigned hi, lo;
-    __asm__ __volatile__ ("rdtscp" : "=a"(lo), "=d"(hi)::"rcx");
-    return ( (unsigned long long)lo)|( ((unsigned long long)hi)<<32 );
-}
-#else
-#error "What architecture is this???"
-#endif
-
-static inline hrtime_t cycles_to_ns(int cpu_speed_mhz, hrtime_t cycles)
-{
-    return (cycles*1000/cpu_speed_mhz);
-}
-
-static inline hrtime_t ns_to_cycles(int cpu_speed_mhz, hrtime_t ns)
-{
-    return (ns*cpu_speed_mhz/1000);
-}
-
-static void emulate_latency_ns(int ns)
-{
-    hrtime_t cycles;
-    hrtime_t start;
-    hrtime_t stop;
-    
-    start = asm_rdtsc();
-    cycles = ns_to_cycles(fam_model.cpu_speed_mhz, ns);
-
-    do { 
-        /* RDTSC doesn't necessarily wait for previous instructions to complete 
-         * so a serializing instruction is usually used to ensure previous 
-         * instructions have completed. However, in our case this is a desirable
-         * property since we want to overlap the latency we emulate with the
-         * actual latency of the emulated instruction. 
-         */
-        stop = asm_rdtsc();
-    } while (stop - start < cycles);
-}
 
 static inline void ioctl_4(struct fam_atomic_args_32 *args, unsigned int opt)
 {
@@ -351,53 +248,13 @@ static inline void ioctl_16(struct fam_atomic_args_128 *args, unsigned int opt)
 }
 
 
-static void wait_all_reqs_complete(hrtime_t now)
-{
-    if (!fam_tls_thread) {
-        fam_tls_thread = malloc(sizeof(*fam_tls_thread));
-        queue_init(&fam_tls_thread->reqs, fam_model.atomic_parallelism);
-    }
-
-    int reqs_waited = 0; 
-
-    while (!queue_is_empty(&fam_tls_thread->reqs)) 
-    {
-        hrtime_t oldest;
-        queue_front(&fam_tls_thread->reqs, (void**) &oldest);
-        hrtime_t target = oldest + ns_to_cycles(fam_model.cpu_speed_mhz, fam_model.atomic_latency);
-        if (asm_rdtsc() < target) {
-            reqs_waited++;
-        }
-        while (asm_rdtsc() < target);
-        queue_dequeue(&fam_tls_thread->reqs);
-    }
-}
-
-static void wait_available_req_slot(hrtime_t now)
-{
-    if (!fam_tls_thread) {
-        fam_tls_thread = malloc(sizeof(*fam_tls_thread));
-        queue_init(&fam_tls_thread->reqs, fam_model.atomic_parallelism);
-    }
-
-    if (queue_is_full(&fam_tls_thread->reqs)) 
-    {
-        hrtime_t oldest;
-        queue_front(&fam_tls_thread->reqs, (void**) &oldest);
-        hrtime_t target = oldest + ns_to_cycles(fam_model.cpu_speed_mhz, fam_model.atomic_latency);
-        while (asm_rdtsc() < target);
-        queue_dequeue(&fam_tls_thread->reqs);
-    }
-}
-
-
 static inline int simulated_ioctl(unsigned int opt, unsigned long args)
 {
     hrtime_t now = asm_rdtsc();
 
-    wait_available_req_slot(now);
+    fam_atomic_model_wait_available_req_slot(now);
 
-    queue_enqueue(&fam_tls_thread->reqs, (void*) now);
+    fam_atomic_model_queue_enqueue((void*) now);
 
 	if (opt == FAM_ATOMIC_32_FETCH_AND_ADD ||
 	    opt == FAM_ATOMIC_32_SWAP ||
@@ -856,7 +713,7 @@ void fam_spin_unlock(struct fam_spinlock *lock)
 void fam_invalidate(const void *addr, size_t len)
 {
     if (fam_model.invalidate_enabled) {
-        emulate_latency_ns(fam_model.invalidate_latency);
+        fam_atomic_model_emulate_latency_ns(fam_model.invalidate_latency);
     }
     return;
 }
@@ -873,7 +730,6 @@ void fam_persist(const void *addr, size_t len)
         }
         hrtime_t now = asm_rdtsc();
         wait_all_reqs_complete(now);
-        //emulate_latency_ns(fam_model.persist_latency);
     }
     return;
 }
@@ -881,6 +737,6 @@ void fam_persist(const void *addr, size_t len)
 void fam_fence()
 {
     hrtime_t now = asm_rdtsc();
-    wait_all_reqs_complete(now);
+    fam_atomic_model_wait_all_reqs_complete(now);
 }
 
