@@ -725,11 +725,11 @@ void fam_persist(const void *addr, size_t len)
         int i;
         for (i=0; i < len; i+=64) {
             hrtime_t now = asm_rdtsc();
-            wait_available_req_slot(now);
-            queue_enqueue(&fam_tls_thread->reqs, (void*) now);
+            fam_atomic_model_wait_available_req_slot(now);
+            fam_atomic_model_queue_enqueue((void*) now);
         }
         hrtime_t now = asm_rdtsc();
-        wait_all_reqs_complete(now);
+        fam_atomic_model_wait_all_reqs_complete(now);
     }
     return;
 }
