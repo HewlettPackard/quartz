@@ -865,7 +865,15 @@ void fam_invalidate(const void *addr, size_t len)
 void fam_persist(const void *addr, size_t len)
 {
     if (fam_model.persist_enabled) {
-        emulate_latency_ns(fam_model.persist_latency);
+        int i;
+        for (i=0; i < len; i+=64) {
+            hrtime_t now = asm_rdtsc();
+            wait_available_req_slot(now);
+            queue_enqueue(&fam_tls_thread->reqs, (void*) now);
+        }
+        hrtime_t now = asm_rdtsc();
+        wait_all_reqs_complete(now);
+        //emulate_latency_ns(fam_model.persist_latency);
     }
     return;
 }

@@ -241,6 +241,12 @@ void create_latency_epoch()
     // must always be thread_self since we call core specific data through hrtime_cycles
     thread_t* thread = thread_self();
 
+    // if thread is NULL then that means the thread got interrupted before it completes
+    // registration with the latency model. Just ignore this spurious call.
+    if (!thread) {
+        return;
+    }
+
     if (!reached_min_epoch_duration(thread)) {
     	if (!thread) thread = thread_self();
     	if (thread) thread->signaled = 0;
