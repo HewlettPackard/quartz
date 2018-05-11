@@ -20,7 +20,7 @@ add_executable(test_dev ${CMAKE_CURRENT_SOURCE_DIR}/test_dev.cc)
 target_link_libraries(test_dev pthread nvmemul)
 
 add_executable(test_fam ${CMAKE_CURRENT_SOURCE_DIR}/test_fam.c)
-target_link_libraries(test_fam pthread nvmemul)
+target_link_libraries(test_fam nvmemul pthread)
 
 add_executable(test_thread ${CMAKE_CURRENT_SOURCE_DIR}/test_thread.cc)
 target_link_libraries(test_thread nvmemul pthread)

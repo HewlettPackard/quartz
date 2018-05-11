@@ -18,6 +18,7 @@
 #include <linux/module.h>
 #include <linux/moduleparam.h>
 #include <linux/major.h>
+#include <linux/mutex.h>
 #include <linux/kernel.h>
 #include <linux/slab.h>
 #include <linux/fs.h>
@@ -51,6 +52,7 @@ static const int NVMEMUL_MAJOR = 0;
 const const int PERFCTR0 = 0xc1;
 const const int PERFEVENTSEL0 = 0x186;
 
+static struct mutex pmc_ioctl_mutex;
 
 void pmc_set_pce_bit(void* arg) 
 {
@@ -76,6 +78,7 @@ int pmc_init_module(void)
 
 	printk(KERN_INFO "%s: major is %d\n", module_name, mod_major);
 
+	mutex_init(&pmc_ioctl_mutex);
 	/*
 	 * In order to use the rdpmc instruction in user mode, we need to set the
 	 * PCE bit of CR4. PCE is 8th bit of cr4, and 256 is 2 << 8
@@ -236,6 +239,7 @@ static long pmc_ioctl(struct file *f, unsigned int cmd, unsigned long arg)
 {
     int ret = -1;
 
+	mutex_lock(&pmc_ioctl_mutex);
 	printk(KERN_INFO "%s: ioctl command: 0x%x\n", module_name, cmd);
 	switch (cmd) {
 		case IOCTL_SETCOUNTER:
@@ -251,6 +255,7 @@ static long pmc_ioctl(struct file *f, unsigned int cmd, unsigned long arg)
 			printk(KERN_INFO "%s: ioctl illegal command: 0x%x\n", module_name, cmd);
 			break;
 	}
+	mutex_unlock(&pmc_ioctl_mutex);
 	return ret;
 }
 

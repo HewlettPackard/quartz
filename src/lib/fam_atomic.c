@@ -40,6 +40,7 @@ void fam_atomic_xadd_wrong_size(void);
 void fam_atomic_xchg_wrong_size(void);
 void store_release_wrong_size(void);
 void fam_atomic_arch_not_supported(void);
+void fam_fence(void);
 
 #define store_release(ptr, val) 		\
 do {						\
@@ -254,7 +255,7 @@ static inline int simulated_ioctl(unsigned int opt, unsigned long args)
 
     fam_atomic_model_wait_available_req_slot(now);
 
-    fam_atomic_model_queue_enqueue((void*) now);
+    fam_atomic_model_queue_enqueue_request_ns(now, fam_model.atomic_latency);
 
 	if (opt == FAM_ATOMIC_32_FETCH_AND_ADD ||
 	    opt == FAM_ATOMIC_32_SWAP ||
@@ -272,6 +273,10 @@ static inline int simulated_ioctl(unsigned int opt, unsigned long args)
 		printf("ERROR: ioctl() invalid 'opt' argument\n");
 		exit(-1);
 	}
+
+    // issue an implicit fam_fence to synchronously wait for the completion of 
+    // queued atomic operation
+    fam_fence();
 
 	return 0;
 }
@@ -712,30 +717,55 @@ void fam_spin_unlock(struct fam_spinlock *lock)
 
 void fam_invalidate(const void *addr, size_t len)
 {
-    if (fam_model.invalidate_enabled) {
-        fam_atomic_model_emulate_latency_ns(fam_model.invalidate_latency);
+    if (!fam_model.enabled || fam_model.invalidate_latency <= 0) {
+        return;
     }
-    return;
+
+    fam_atomic_model_emulate_latency_ns(fam_model.invalidate_latency);
 }
 
 
 void fam_persist(const void *addr, size_t len)
 {
-    if (fam_model.persist_enabled) {
-        int i;
-        for (i=0; i < len; i+=64) {
-            hrtime_t now = asm_rdtsc();
-            fam_atomic_model_wait_available_req_slot(now);
-            fam_atomic_model_queue_enqueue((void*) now);
-        }
-        hrtime_t now = asm_rdtsc();
-        fam_atomic_model_wait_all_reqs_complete(now);
+    if (!fam_model.enabled || fam_model.persist_latency <= 0) {
+        return;
     }
-    return;
+
+    fam_atomic_model_range_access(len, fam_model.persist_latency, 0);
+}
+
+void *fam_memcpy(void *dest, const void *src, size_t n)
+{
+    if (!fam_model.enabled || fam_model.read_latency <= 0) {
+        return memcpy(dest, src, n);
+    }
+
+    hrtime_t start = asm_rdtsc();
+    int ret = memcpy(dest, src, n);
+    hrtime_t end = asm_rdtsc();
+    fam_atomic_model_range_access(n, fam_model.read_latency, end - start);
+    return ret;
+}
+
+int fam_memcmp(const void *s1, const void *s2, size_t n)
+{
+    if (!fam_model.enabled || fam_model.read_latency <= 0) {
+        return memcmp(s1, s2, n);
+    }
+
+    hrtime_t start = asm_rdtsc();
+    int ret = memcmp(s1, s2, n);
+    hrtime_t end = asm_rdtsc();
+    fam_atomic_model_range_access(n, fam_model.read_latency, end - start);
+    return ret;
 }
 
 void fam_fence()
 {
+    if (!fam_model.enabled) {
+        return;
+    }
+
     hrtime_t now = asm_rdtsc();
     fam_atomic_model_wait_all_reqs_complete(now);
 }

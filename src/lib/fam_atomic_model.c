@@ -15,12 +15,12 @@ fam_model_t fam_model;
 
 int fam_init(config_t* cfg, int cpu_speed_mhz)
 {
-    __cconfig_lookup_bool(cfg, "fam.invalidate", &fam_model.invalidate_enabled);
+    __cconfig_lookup_bool(cfg, "fam.enable", &fam_model.enabled);
+    __cconfig_lookup_int(cfg, "fam.parallelism", &fam_model.parallelism);
     __cconfig_lookup_int(cfg, "fam.invalidate_latency", &fam_model.invalidate_latency);
-    __cconfig_lookup_bool(cfg, "fam.persist", &fam_model.persist_enabled);
     __cconfig_lookup_int(cfg, "fam.persist_latency", &fam_model.persist_latency);
+    __cconfig_lookup_int(cfg, "fam.read_latency", &fam_model.read_latency);
     __cconfig_lookup_int(cfg, "fam.atomic_latency", &fam_model.atomic_latency);
-    __cconfig_lookup_int(cfg, "fam.atomic_parallelism", &fam_model.atomic_parallelism);
 
     fam_model.cpu_speed_mhz = cpu_speed_mhz;
 
@@ -31,7 +31,7 @@ void fam_atomic_model_wait_all_reqs_complete(hrtime_t now)
 {
     if (!fam_tls_thread) {
         fam_tls_thread = malloc(sizeof(*fam_tls_thread));
-        queue_init(&fam_tls_thread->reqs, fam_model.atomic_parallelism);
+        queue_init(&fam_tls_thread->reqs, fam_model.parallelism);
     }
 
     int reqs_waited = 0; 
@@ -40,11 +40,10 @@ void fam_atomic_model_wait_all_reqs_complete(hrtime_t now)
     {
         hrtime_t oldest;
         queue_front(&fam_tls_thread->reqs, (void**) &oldest);
-        hrtime_t target = oldest + ns_to_cycles(fam_model.cpu_speed_mhz, fam_model.atomic_latency);
-        if (asm_rdtsc() < target) {
+        if (asm_rdtsc() < oldest) {
             reqs_waited++;
         }
-        while (asm_rdtsc() < target);
+        while (asm_rdtsc() < oldest);
         queue_dequeue(&fam_tls_thread->reqs);
     }
 }
@@ -53,22 +52,28 @@ void fam_atomic_model_wait_available_req_slot(hrtime_t now)
 {
     if (!fam_tls_thread) {
         fam_tls_thread = malloc(sizeof(*fam_tls_thread));
-        queue_init(&fam_tls_thread->reqs, fam_model.atomic_parallelism);
+        queue_init(&fam_tls_thread->reqs, fam_model.parallelism);
     }
 
     if (queue_is_full(&fam_tls_thread->reqs)) 
     {
         hrtime_t oldest;
         queue_front(&fam_tls_thread->reqs, (void**) &oldest);
-        hrtime_t target = oldest + ns_to_cycles(fam_model.cpu_speed_mhz, fam_model.atomic_latency);
-        while (asm_rdtsc() < target);
+        while (asm_rdtsc() < oldest);
         queue_dequeue(&fam_tls_thread->reqs);
     }
 }
 
-void fam_atomic_model_queue_enqueue(hrtime_t now)
+void fam_atomic_model_queue_enqueue_request(hrtime_t now_cycles, int latency_cycles)
 {
-    queue_enqueue(&fam_tls_thread->reqs, (void*) now);
+    hrtime_t target = now_cycles + latency_cycles;
+    queue_enqueue(&fam_tls_thread->reqs, (void*) target);
+}
+
+void fam_atomic_model_queue_enqueue_request_ns(hrtime_t now_cycles, int latency_ns)
+{
+    int latency_cycles = ns_to_cycles(fam_model.cpu_speed_mhz, latency_ns);
+    fam_atomic_model_queue_enqueue_request(now_cycles, latency_cycles);
 }
 
 void fam_atomic_model_emulate_latency_ns(int ns)
@@ -91,5 +96,20 @@ void fam_atomic_model_emulate_latency_ns(int ns)
     } while (stop - start < cycles);
 }
 
-
-
+/*
+ * Certain operations invoking this method, such as memcpy, may take a finite 
+ * amount of time to complete, so we want to include that time into the emulation
+ * as overlapping cycles to avoid double accounting.
+ */
+void fam_atomic_model_range_access(size_t len, int request_latency_ns, int overlap_cycles)
+{
+    int i;
+    int request_latency_cycles = ns_to_cycles(fam_model.cpu_speed_mhz, request_latency_ns);
+    for (i=0; i < len; i+=64) {
+        hrtime_t now_cycles = asm_rdtsc();
+        fam_atomic_model_wait_available_req_slot(now_cycles);
+        fam_atomic_model_queue_enqueue_request((void*) (now_cycles-overlap_cycles), request_latency_cycles);
+    }
+    hrtime_t now_cycles = asm_rdtsc();
+    fam_atomic_model_wait_all_reqs_complete(now_cycles);
+}

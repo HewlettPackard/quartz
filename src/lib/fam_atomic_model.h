@@ -20,12 +20,15 @@
 #include "config.h"
 
 typedef struct {
+    int enabled;
+    int parallelism;
     int invalidate_enabled;
     int invalidate_latency;
     int persist_enabled;
     int persist_latency;
+    int read_enabled;
+    int read_latency;
     int atomic_latency;
-    int atomic_parallelism;
     int cpu_speed_mhz;
 } fam_model_t;
 
@@ -37,7 +40,9 @@ int fam_init(config_t* cfg, int cpu_speed_mhz);
 void fam_atomic_model_emulate_latency_ns(int ns);
 void fam_atomic_model_wait_all_reqs_complete(hrtime_t now);
 void fam_atomic_model_wait_available_req_slot(hrtime_t now);
-void fam_atomic_model_queue_enqueue(hrtime_t now);
+void fam_atomic_model_queue_enqueue_request(hrtime_t now_cycles, int latency_cycles);
+void fam_atomic_model_queue_enqueue_request_ns(hrtime_t now_cycles, int latency_ns);
+void fam_atomic_model_range_access(size_t len, int request_latency_ns, int overlap_cycles);
 
 
 #if defined(__i386__)
