@@ -528,6 +528,8 @@ fam_atomic_64_fetch_xor_unpadded(int64_t *address,
 	return fam_atomic_64_fetch_xor(address, arg);
 }
 
+int64_t fam_read_64(const void *addr);
+
 #ifdef __cplusplus
 }
 #endif

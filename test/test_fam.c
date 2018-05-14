@@ -1,3 +1,5 @@
+#include <unistd.h>
+
 #include "fam_atomic.h"
 #include "fam_atomic_model.h"
 
@@ -39,14 +41,28 @@ void fam_copy()
 
 }
 
+void fam_read()
+{
+    int64_t val;
+    int64_t buf;
+    int i;
+    for (i = 0; i < 1000000; i++) {
+        val = fam_read_64(buf);
+    }
+    fam_fence();
+}
+
 int main()
 {
     fam_fence(); // dummy request to force initialization of quartz
+#if 0
     report_latency(atomic_fence);
     report_latency(atomic_fence);
     report_latency(atomic_fence);
     report_latency(atomic_fence8);
     
     report_latency(fam_copy);
-    
+#endif
+
+    report_latency(fam_read);    
 }

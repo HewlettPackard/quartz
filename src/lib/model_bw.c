@@ -42,16 +42,20 @@ static int bw_model_enabled;
 int init_bandwidth_model(config_t* cfg, virtual_topology_t* vt)
 {
     int i;
+    int bw_model_reset_throttle = 1;
 
     srandom((int)monotonic_time());
-
-    // reset power throttling 
-    for (i=0; i<vt->pt->num_nodes; i++) {
-        physical_node_t* phys_node = &vt->pt->physical_nodes[i];
-        bw_throttle_reset(phys_node);
-    }
-
+    
     __cconfig_lookup_bool(cfg, "bandwidth.enable", &bw_model_enabled);
+    __cconfig_lookup_bool(cfg, "bandwidth.reset_throttle", &bw_model_reset_throttle);
+
+    if (bw_model_reset_throttle) {
+        // reset power throttling 
+        for (i=0; i<vt->pt->num_nodes; i++) {
+            physical_node_t* phys_node = &vt->pt->physical_nodes[i];
+            bw_throttle_reset(phys_node);
+        }
+    }
 
     if (!bw_model_enabled) return E_SUCCESS;
 

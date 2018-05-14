@@ -770,3 +770,54 @@ void fam_fence()
     fam_atomic_model_wait_all_reqs_complete(now);
 }
 
+int64_t fam_read_64(const void *addr)
+{
+    if (!fam_model.enabled || fam_model.read_latency <= 0) {
+        return *((int64_t*) addr);
+    }
+   
+    hrtime_t now_cycles = asm_rdtsc();
+    int64_t val = *((int64_t*) addr);
+    fam_atomic_model_wait_available_req_slot(now_cycles);
+    fam_atomic_model_queue_enqueue_request_ns(now_cycles, fam_model.read_latency);
+    return val;
+}
+
+void fam_read_128(const void *addr, int64_t val[2])
+{
+    if (!fam_model.enabled || fam_model.read_latency <= 0) {
+        val[0] = ((int64_t*) addr)[0];
+        val[1] = ((int64_t*) addr)[1];
+        return;
+    }
+
+    hrtime_t now_cycles = asm_rdtsc();
+    val[0] = ((int64_t*) addr)[0];
+    val[1] = ((int64_t*) addr)[1];
+    fam_atomic_model_wait_available_req_slot(now_cycles);
+    fam_atomic_model_queue_enqueue_request_ns(now_cycles, fam_model.read_latency);
+}
+
+void fam_write_64(const void *addr, int64_t val)
+{
+    if (fam_model.enabled && fam_model.read_latency > 0) {
+        hrtime_t now_cycles = asm_rdtsc();
+        fam_atomic_model_wait_available_req_slot(now_cycles);
+        fam_atomic_model_queue_enqueue_request_ns(now_cycles, fam_model.read_latency);
+    }
+   
+    *((int64_t*) addr) = val;
+}
+
+void fam_write_128(const void *addr, int64_t val[2])
+{
+    if (fam_model.enabled && fam_model.read_latency > 0) {
+        hrtime_t now_cycles = asm_rdtsc();
+        fam_atomic_model_queue_enqueue_request(now_cycles, fam_model.read_latency);
+    }
+
+    ((int64_t*) addr)[0] = val[0];
+    ((int64_t*) addr)[1] = val[1];
+}
+
+
