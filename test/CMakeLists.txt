@@ -1,5 +1,6 @@
 include_directories(${CMAKE_SOURCE_DIR}/third_party/gtest-1.7.0/include)
 include_directories(${CMAKE_SOURCE_DIR}/src/lib)
+include_directories(${CMAKE_SOURCE_DIR}/include)
 
 function (add_c_test targetname)
   add_executable(${targetname} ${CMAKE_CURRENT_SOURCE_DIR}/${targetname}.c)
