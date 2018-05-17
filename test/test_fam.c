@@ -1,6 +1,6 @@
 #include <unistd.h>
 
-#include "fam_atomic.h"
+#include "quartz/fam_atomic.h"
 #include "fam_atomic_model.h"
 
 int64_t global;
