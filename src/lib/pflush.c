@@ -120,5 +120,9 @@ pflush(uint64_t *addr)
     start = asm_rdtscp();
     asm_clflush(addr);  
     stop = asm_rdtscp();
-    emulate_latency_ns(global_write_latency_ns - cycles_to_ns(global_cpu_speed_mhz, stop-start));
+    int to_insert_ns = global_write_latency_ns - cycles_to_ns(global_cpu_speed_mhz, stop-start);
+    if (to_insert_ns <= 0) {
+        return;
+    }
+    emulate_latency_ns(to_insert_ns);
 }

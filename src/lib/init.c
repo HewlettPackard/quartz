@@ -143,7 +143,7 @@ void init()
         }
 #endif
         int write_latency;
-        __cconfig_lookup_bool(&cfg, "latency.write", &write_latency);
+        __cconfig_lookup_int(&cfg, "latency.write", &write_latency);
         init_pflush(cpu_speed_mhz(), write_latency);
     }
 
