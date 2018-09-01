@@ -20,6 +20,11 @@ Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 #pragma GCC push_options
 #pragma GCC optimize ("O0")
+
+// The width of general purpose counters are 40bits.
+// https://www.felixcloutier.com/x86/RDPMC.html
+#define RDPMC_MAX_VALUE 0xFFFFFFFFFF  
+
 long long rdpmc(int counter) 
 {
 
@@ -192,8 +197,10 @@ uint64_t read_pmc_hw_event_diff(pmc_hw_event_t* event)
     int cpu_id = thread_self()->cpu_id;
     uint64_t cur_val = read_pmc_hw_event_cur(event);
     uint64_t last_val = event->last_val[cpu_id];
+    //if (cur_val < last_val && (event->hw_cntr_id == 0)) {
     if (cur_val < last_val) {
-        return 0;
+        event->last_val[cpu_id] = cur_val;
+        return (cur_val + (RDPMC_MAX_VALUE - last_val));
     }
     event->last_val[cpu_id] = cur_val;
     return cur_val - last_val;
