@@ -24,8 +24,11 @@ Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #include <linux/proc_fs.h>
 #include <linux/fcntl.h>
 #include <linux/smp.h>
+#include <linux/uaccess.h>
+
 #include <asm/msr.h>
 #include <asm/uaccess.h>
+
 #include "ioctl_query.h"
 
 static long pmc_ioctl(struct file *f, unsigned int cmd, unsigned long arg);
